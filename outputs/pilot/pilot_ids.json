@@ -1,0 +1,107 @@
+{
+  "seed": 42,
+  "per_task": 5,
+  "source_file": "data\\longmemeval-cleaned\\longmemeval_s_cleaned.json",
+  "questions": [
+    {
+      "question_id": "28bcfaac",
+      "task_type": "IE",
+      "question_type": "single-session-assistant"
+    },
+    {
+      "question_id": "0a34ad58",
+      "task_type": "IE",
+      "question_type": "single-session-preference"
+    },
+    {
+      "question_id": "6b7dfb22",
+      "task_type": "IE",
+      "question_type": "single-session-preference"
+    },
+    {
+      "question_id": "5d3d2817",
+      "task_type": "IE",
+      "question_type": "single-session-user"
+    },
+    {
+      "question_id": "57f827a0",
+      "task_type": "IE",
+      "question_type": "single-session-preference"
+    },
+    {
+      "question_id": "27016adc",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "e56a43b9",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "1f2b8d4f",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "d3ab962e",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "gpt4_7fce9456",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "ed4ddc30",
+      "task_type": "KU",
+      "question_type": "knowledge-update"
+    },
+    {
+      "question_id": "184da446",
+      "task_type": "KU",
+      "question_type": "knowledge-update"
+    },
+    {
+      "question_id": "ba61f0b9",
+      "task_type": "KU",
+      "question_type": "knowledge-update"
+    },
+    {
+      "question_id": "07741c45",
+      "task_type": "KU",
+      "question_type": "knowledge-update"
+    },
+    {
+      "question_id": "07741c44",
+      "task_type": "KU",
+      "question_type": "knowledge-update"
+    },
+    {
+      "question_id": "4dfccbf8",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "b29f3365",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "b46e15ee",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "gpt4_483dd43c",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "gpt4_68e94287",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    }
+  ]
+}

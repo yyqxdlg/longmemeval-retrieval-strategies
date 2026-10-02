@@ -13,7 +13,7 @@ __pycache__/
 data/
 
 # Raw experiment outputs
-outputs/
+
 
 # Local caches / logs
 .cache/

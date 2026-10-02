@@ -1,0 +1,5 @@
+k=5
+n_rows=60
+n_questions=20
+task-level tests are exploratory for the 20-question pilot
+Holm correction is applied within each metric/scope family of three strategy pairs

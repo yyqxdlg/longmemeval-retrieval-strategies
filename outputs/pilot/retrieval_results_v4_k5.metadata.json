@@ -1,0 +1,15 @@
+{
+  "stella_model": "NovaSearch/stella_en_1.5B_v5",
+  "stella_revision": "7817065102fd9e1b031fe874e910c01f40b2f001",
+  "device": "cuda",
+  "precision": "fp32",
+  "max_seq_length": 512,
+  "batch_size": 1,
+  "k_values": [
+    5
+  ],
+  "future_session_policy": "exclude_strictly_later_calendar_dates; retain_same_day",
+  "generation_tokenizer": null,
+  "latency": "1 warm-up + 5 measured runs; median reported",
+  "checkpointing": "CSV flushed after every result row"
+}

@@ -1,6 +1,7 @@
 {
   "seed": 42,
   "per_task": 5,
+  "stratify_ie": false,
   "source_file": "data\\longmemeval-cleaned\\longmemeval_s_cleaned.json",
   "questions": [
     {

@@ -1,0 +1,27 @@
+# Python environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Dataset
+data/
+
+# Raw experiment outputs
+outputs/
+
+# Local caches / logs
+.cache/
+*.log
+
+# Archives
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+# Recommended runtime: Python 3.11 on Windows.
+# Install PyTorch separately first so the correct CUDA wheel is used:
+# pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+#
+# These are the project's direct dependencies. For the exact full environment,
+# including transitive packages such as tokenizers and huggingface_hub, run:
+#   python -m pip freeze > outputs/pilot/environment.txt
+
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.17.1
+matplotlib==3.9.2
+sentence-transformers==3.0.1
+transformers==4.42.3
+einops==0.8.0

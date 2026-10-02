@@ -1,0 +1,13 @@
+IMPORTANT
+
+Your current clone:
+https://huggingface.co/datasets/xiaowu0162/longmemeval-v2
+
+is LongMemEval-V2. It does NOT contain the classic IE/MR/KU/TR task taxonomy
+used by the current II2202 Research Plan.
+
+For the current plan, use:
+https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned
+
+Preferred pilot source file:
+longmemeval_s_cleaned.json

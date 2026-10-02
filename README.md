@@ -1,115 +1,213 @@
-# LongMemEval Retrieval Pilot — Fixed Version v4
+# LongMemEval Retrieval Pilot — v4
 
-This version keeps the time-handling and retrieval fixes introduced in v3, while substantially expanding the quantitative analysis: paired tests, task-level analysis, 95% confidence intervals, RQ3 trade-off analysis, top-k comparison, and colorblind-friendly visualizations.
+This repository contains the pilot implementation for the project **How Memory Retrieval Strategies Affect LLM Agent Performance**.
 
-## What Changed in This Version
+The experiment compares three memory retrieval strategies on the classic cleaned LongMemEval benchmark:
 
-### 1. Recency no longer depends on list position
+- **Recency retrieval**
+- **Semantic retrieval**
+- **Hybrid retrieval**
 
-`memory_adapter.py` now parses timestamps such as:
+The pilot uses four task groups:
 
-```text
-2023/05/30 (Tue) 11:46
-```
+- **IE** — Information Extraction
+- **MR** — Multi-session Reasoning
+- **KU** — Knowledge Update
+- **TR** — Temporal Reasoning
 
-and uses the actual timestamp to calculate recency. Therefore, Recency and Hybrid retrieval remain correct even when sessions in the JSON file are not ordered chronologically.
+The current pilot contains **20 questions: 5 per task type**.
 
-Availability filtering is now performed at the **calendar-day level**: a session is excluded only when `session_date.date() > question_date.date()`. A session that occurs later in HH:MM on the same day as the question is retained. This is necessary because LongMemEval may assign times within the same day in a way that would make minute-level comparison incorrectly classify valid same-day sessions as future information.
+---
 
-The full timestamp is still used for Recency ranking. Only the future-session filter uses the calendar day. The program also records `same_day_later` diagnostics so this behavior can be documented in the report. If gold evidence is found on a genuinely later calendar day, the program still stops and asks for manual inspection.
+## Main Experimental Design
 
-### 2. Recall is reported using three definitions
+The primary independent variable is the **retrieval strategy**:
 
-The retrieval output now includes:
+1. Recency
+2. Semantic
+3. Hybrid
 
-- `round_recall_at_k`: proportion of relevant dialogue rounds retrieved;
-- `recall_any_at_k`: whether at least one relevant round is retrieved in the top-k (0/1);
-- `session_recall_at_k`: proportion of `answer_session_ids` covered by the retrieved memories.
+The main retrieval metrics are:
 
-This makes it possible to distinguish the granularity of turn-level `has_answer=True` annotations from session-level `answer_session_ids`.
+- `round_recall_at_k`
+- `recall_any_at_k`
+- `session_recall_at_k`
+- `latency_ms`
 
-### 3. Stella still uses 512 tokens as the main setting
-
-The main experiment keeps:
-
-```text
-max_seq_length = 512
-```
-
-rather than directly changing the input length to 1024 or 2048. This keeps the main condition aligned with the selected Stella setup instead of introducing a new retrieval condition after inspecting the pilot.
-
-The output CSV therefore adds diagnostics for truncation risk:
-
-- `mean_memory_tokens_stella`
-- `max_memory_tokens_stella`
-- `num_memories_over_stella_limit`
-- `fraction_memories_over_stella_limit`
-
-These values can be used to quantify how often memory items exceed the 512-token input limit. A longer sequence length can later be evaluated separately as a sensitivity analysis.
-
-### 4. The primary Hybrid formula is unchanged, but scale diagnostics are added
-
-The main experiment still follows the Research Plan:
+The primary retrieval depth is:
 
 ```text
-S_semantic = (cosine + 1) / 2
-S_recency = 1 - rank / (N - 1)
-S_hybrid = 0.5 * S_semantic + 0.5 * S_recency
+k = 5
 ```
 
-The output CSV now also records the mean, standard deviation, minimum, and maximum of semantic and recency scores across all memories. These diagnostics make it possible to check whether the recency score varies much more strongly than the semantic score.
-
-Do not change the primary Hybrid formula after inspecting pilot results. If an alternative normalization such as min-max normalization is evaluated, report it separately as a sensitivity analysis.
-
-### 5. GPU settings and reproducibility
-
-- Stella revision is pinned to: `7817065102fd9e1b031fe874e910c01f40b2f001`.
-- CUDA uses fp16 by default to reduce GPU memory usage.
-- Default batch size is 4.
-- Direct dependencies are version-pinned in `requirements.txt`.
-- The complete runtime environment should still be saved with `pip freeze`, including transitive dependencies such as `tokenizers` and `huggingface_hub`.
-- `.gitignore` excludes `.idea/`, `__pycache__/`, and `.venv/`.
-
-### 6. Generation context includes dates
-
-`build_generation_context()` sorts retrieved memories chronologically before passing them to the answer-generation model and formats them as:
-
-```text
-[Question date: ...]
-[Session date: ...]
-User: ...
-Assistant: ...
-```
-
-Therefore, Recency, Semantic, and Hybrid all use the same context-ordering rule at generation time.
+Top-10 can be evaluated separately as an additional comparison.
 
 ---
 
 # Installation
 
-A working Python 3.11 + CUDA environment can be reused.
+Python **3.11** is recommended.
 
-For PyTorch on an RTX 4070 / CUDA 12.1 environment:
+The working environment uses:
+
+```text
+Python: 3.11
+PyTorch: 2.3.1 + CUDA 12.1
+Transformers: 4.42.3
+Sentence Transformers: 3.0.1
+Embedding model: NovaSearch/stella_en_1.5B_v5
+Stella revision: 7817065102fd9e1b031fe874e910c01f40b2f001
+```
+
+For Windows with CUDA 12.1, install PyTorch first:
 
 ```powershell
 pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
 ```
 
-Install the remaining dependencies with:
+Install the remaining dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
+`requirements-lock.txt` records the complete working environment, including transitive dependencies.
+
 ---
 
-# 1. Validate the Selected 20 Pilot Questions
+# Dataset
 
-The already checked pilot sample does not need to be resampled. Continue using:
+This project uses the **classic cleaned LongMemEval dataset**, not LongMemEval-V2.
+
+Clone the dataset into the local `data/` directory:
+
+```powershell
+git clone https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned data/longmemeval-cleaned
+```
+
+The pilot uses:
 
 ```text
-outputs/pilot/pilot_questions.json
+data/longmemeval-cleaned/longmemeval_s_cleaned.json
 ```
+
+The repository does not track the dataset because `data/` is excluded by `.gitignore`.
+
+Expected local structure:
+
+```text
+data/
+└── longmemeval-cleaned/
+    ├── longmemeval_m_cleaned.json
+    ├── longmemeval_oracle.json
+    ├── longmemeval_s_cleaned.json
+    └── README.md
+```
+
+---
+
+# Data Processing
+
+## 1. Task Mapping
+
+`prepare_pilot_data.py` maps the original LongMemEval question types into four task groups:
+
+```text
+single-session-user        -> IE
+single-session-assistant   -> IE
+single-session-preference  -> IE
+multi-session              -> MR
+knowledge-update           -> KU
+temporal-reasoning         -> TR
+```
+
+Abstention questions whose IDs end with:
+
+```text
+_abs
+```
+
+are excluded from the pilot.
+
+---
+
+## 2. Pilot Sampling
+
+The current pilot uses:
+
+```text
+5 IE
+5 MR
+5 KU
+5 TR
+```
+
+for a total of:
+
+```text
+20 questions
+```
+
+The fixed random seed is:
+
+```text
+42
+```
+
+Generate the pilot with:
+
+```powershell
+python prepare_pilot_data.py `
+  --data-root data/longmemeval-cleaned `
+  --per-task 5 `
+  --seed 42 `
+  --output-dir outputs/pilot
+```
+
+For the current checked pilot, do **not** use `--stratify-ie`.
+
+The script produces:
+
+```text
+outputs/pilot/
+├── pilot_questions.json
+├── pilot_ids.json
+└── pilot_manifest.csv
+```
+
+`pilot_questions.json` contains the full selected LongMemEval records.
+
+`pilot_ids.json` records the selected question IDs and task types.
+
+`pilot_manifest.csv` provides a compact summary of the selected questions.
+
+The checked pilot IDs are also stored in:
+
+```text
+config/pilot_ids.json
+```
+
+This makes the pilot sampling reproducible even though `outputs/` is ignored by Git.
+
+---
+
+## 3. Verify the Pilot IDs
+
+After generating the pilot, verify that the generated IDs match the checked pilot:
+
+```powershell
+python -c "import json; a=json.load(open('outputs/pilot/pilot_ids.json', encoding='utf-8')); b=json.load(open('config/pilot_ids.json', encoding='utf-8')); x=[q['question_id'] for q in a['questions']]; y=[q['question_id'] for q in b['questions']]; print('Pilot IDs match:', x==y)"
+```
+
+Expected output:
+
+```text
+Pilot IDs match: True
+```
+
+---
+
+## 4. Validate the Pilot
 
 Run:
 
@@ -117,91 +215,360 @@ Run:
 python validate_pilot.py --pilot-file outputs/pilot/pilot_questions.json
 ```
 
-The script reports:
+For the checked 20-question pilot, the validation result is:
 
-- histories that are not ordered by timestamp;
-- questions containing sessions on a **later calendar day** than the question date (excluded by default);
-- whether any gold evidence appears on a later calendar day;
-- questions containing sessions that are later in HH:MM but still on the same day (retained and reported only as diagnostics).
+```text
+Task counts: {'IE': 5, 'MR': 5, 'KU': 5, 'TR': 5}
+Unsorted histories: 10/20
+Questions with sessions on a STRICTLY LATER CALENDAR DAY: 0/20
+Questions with GOLD sessions on a strictly later calendar day: 0/20
+Questions with same-day sessions later by HH:MM (retained): 4/20
+Questions with same-day GOLD sessions later by HH:MM (retained): 1/20
+```
+
+The unsorted histories are expected. The retrieval implementation does not rely on the JSON list order for recency.
 
 ---
 
-# 2. Run Retrieval Again
+# Memory Construction
 
-Because the Recency / Hybrid time logic has changed, previous `retrieval_results.csv` files should not be used for the final analysis. Rerun retrieval with:
+One **dialogue round** is treated as one memory item.
+
+The memory adapter extracts memory items from the LongMemEval session histories and preserves:
+
+- question ID
+- session ID
+- round index
+- session timestamp
+- dialogue text
+- relevance labels
+
+Relevant rounds are identified using turn-level `has_answer=True` labels when available.
+
+Session-level `answer_session_ids` are retained separately for session-level recall.
+
+---
+
+# Time Handling
+
+Some LongMemEval histories are not stored in chronological order.
+
+Therefore, Recency and Hybrid retrieval use parsed timestamps rather than list positions.
+
+Timestamps such as:
+
+```text
+2023/05/30 (Tue) 11:46
+```
+
+are parsed directly.
+
+The preprocessing policy is:
+
+- full timestamps are used for Recency ranking;
+- sessions on a **strictly later calendar date** than the question are excluded;
+- sessions later in HH:MM on the same calendar day are retained;
+- same-day-later cases are recorded as diagnostics.
+
+For the current pilot:
+
+```text
+strictly later calendar-day questions: 0/20
+strictly later calendar-day gold questions: 0/20
+same-day-later questions: 4/20
+same-day-later gold questions: 1/20
+```
+
+This calendar-day filtering rule is a benchmark-specific preprocessing decision and should be documented in the report.
+
+---
+
+# Retrieval Strategies
+
+## Recency
+
+Recency retrieval ranks memories using the actual parsed timestamps.
+
+The normalized recency score is:
+
+```text
+S_recency = 1 - rank / (N - 1)
+```
+
+where rank 0 is the newest memory.
+
+---
+
+## Semantic
+
+Semantic retrieval uses:
+
+```text
+NovaSearch/stella_en_1.5B_v5
+```
+
+Pinned revision:
+
+```text
+7817065102fd9e1b031fe874e910c01f40b2f001
+```
+
+The query is encoded using Stella's:
+
+```text
+s2p_query
+```
+
+Memory embeddings are normalized and reused.
+
+Semantic similarity is cosine similarity.
+
+---
+
+## Hybrid
+
+The Hybrid strategy uses the fixed formula from the Research Plan:
+
+```text
+S_semantic = (cosine + 1) / 2
+S_recency = 1 - rank / (N - 1)
+S_hybrid = 0.5 * S_semantic + 0.5 * S_recency
+```
+
+The primary 0.5 / 0.5 weighting is kept fixed.
+
+The implementation also records semantic-score and recency-score statistics so that scale imbalance can be inspected without changing the primary formula.
+
+---
+
+# Stella Input Length
+
+The main experiment uses:
+
+```text
+max_seq_length = 512
+```
+
+The output records:
+
+```text
+mean_memory_tokens_stella
+max_memory_tokens_stella
+num_memories_over_stella_limit
+fraction_memories_over_stella_limit
+```
+
+These diagnostics quantify possible truncation.
+
+A longer input length should be treated as a separate sensitivity analysis.
+
+---
+
+# Sanity Tests
+
+Run the retrieval sanity test:
 
 ```powershell
-python run_retrieval_pilot.py --pilot-file outputs/pilot/pilot_questions.json --output outputs/pilot/retrieval_results_fixed.csv --k 5
+python test_retrieval.py
+```
+
+A successful run should print:
+
+```text
+RECENCY
+SEMANTIC
+HYBRID
+```
+
+Run the time-handling test:
+
+```powershell
+python test_time_handling.py
+```
+
+The warning:
+
+```text
+Torch was not compiled with flash attention
+```
+
+is not an error. It may affect speed but does not invalidate the retrieval result.
+
+---
+
+# Run Top-5 Retrieval
+
+Run:
+
+```powershell
+python run_retrieval_pilot.py `
+  --pilot-file outputs/pilot/pilot_questions.json `
+  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --k 5
 ```
 
 Default settings:
 
 ```text
-Stella: NovaSearch/stella_en_1.5B_v5
-revision: 7817065102fd9e1b031fe874e910c01f40b2f001
-precision: fp16 on CUDA
-max_seq_length: 512
-batch_size: 4
-future sessions: only sessions on strictly later calendar dates are excluded; same-day sessions are retained
-latency: 1 warm-up + 5 measured runs, median reported
+Embedding model: NovaSearch/stella_en_1.5B_v5
+Revision: 7817065102fd9e1b031fe874e910c01f40b2f001
+Precision: fp16 on CUDA
+Max sequence length: 512
+Batch size: 4
+Latency: 1 warm-up + 5 measured runs; median reported
+Future-session policy: exclude strictly later calendar dates; retain same-day sessions
 ```
 
-If an RTX 4070 runs out of GPU memory:
+The expected output size is:
 
-```powershell
-python run_retrieval_pilot.py --pilot-file outputs/pilot/pilot_questions.json --output outputs/pilot/retrieval_results_fixed.csv --k 5 --batch-size 2
+```text
+20 questions × 3 strategies = 60 rows
 ```
 
-If necessary, reduce further to:
+If GPU memory is insufficient, use:
 
-```powershell
+```text
+--batch-size 2
+```
+
+or:
+
+```text
 --batch-size 1
 ```
 
-All formal comparisons must use the same fixed batch size.
-
-### Top-5 + Top-10
-
-`--k` now accepts multiple values:
-
-```powershell
-python run_retrieval_pilot.py --pilot-file outputs/pilot/pilot_questions.json --output outputs/pilot/retrieval_results_fixed.csv --k 5 10
-```
-
-The CSV stores `k` explicitly. The analysis script does not mix top-5 and top-10 observations.
-
-### Checkpointing and resume for long runs
-
-Each completed result row is written and flushed to the CSV immediately. If the process fails at question 19, results from the first 18 questions are preserved.
-
-If a run is interrupted, resume it with the same experimental settings:
-
-```powershell
-python run_retrieval_pilot.py --pilot-file outputs/pilot/pilot_questions.json --output outputs/pilot/retrieval_results_fixed.csv --k 5 --resume
-```
-
-The script skips existing `(question_id, strategy, k)` combinations.
+Use the same batch size across compared conditions.
 
 ---
 
-# 3. Token Count
+# Checkpointing and Resume
 
-If the final answer-generation tokenizer is not provided, `token_count` remains empty and the script prints a warning. This is intentional: token cost should be measured with the tokenizer of the final generation LLM, not with the Stella tokenizer.
+Each completed result row is written and flushed immediately.
 
-If the final generation model is Llama 3.1 8B Instruct and Hugging Face access has been configured:
+If the experiment is interrupted, resume with:
 
 ```powershell
-python run_retrieval_pilot.py --pilot-file outputs/pilot/pilot_questions.json --output outputs/pilot/retrieval_results_fixed.csv --k 5 --generation-tokenizer meta-llama/Llama-3.1-8B-Instruct
+python run_retrieval_pilot.py `
+  --pilot-file outputs/pilot/pilot_questions.json `
+  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --k 5 `
+  --resume
+```
+
+`--resume` skips already completed:
+
+```text
+(question_id, strategy, k)
+```
+
+combinations.
+
+---
+
+# Check Retrieval Output
+
+After Top-5 finishes:
+
+```powershell
+python -c "import pandas as pd; df=pd.read_csv('outputs/pilot/retrieval_results_v4_k5.csv'); print(df.shape); print(df['strategy'].value_counts()); print(df.groupby(['task_type','strategy']).size())"
+```
+
+Expected total:
+
+```text
+60 rows
+```
+
+Expected strategy counts:
+
+```text
+recency     20
+semantic    20
+hybrid      20
+```
+
+Each task type should have 5 observations for each strategy.
+
+---
+
+# Retrieval Metrics
+
+The output contains three recall definitions.
+
+## Round Recall@k
+
+```text
+round_recall_at_k
+```
+
+The proportion of relevant dialogue rounds retrieved.
+
+## Recall-any@k
+
+```text
+recall_any_at_k
+```
+
+Binary retrieval-success variable:
+
+```text
+1 = at least one relevant round was retrieved
+0 = no relevant round was retrieved
+```
+
+## Session Recall@k
+
+```text
+session_recall_at_k
+```
+
+The proportion of benchmark `answer_session_ids` covered by retrieved memories.
+
+---
+
+# Retrieval Latency
+
+Retrieval latency is measured using:
+
+```text
+1 warm-up run
+5 measured runs
+median latency reported
+```
+
+One-time memory embedding preprocessing is excluded from retrieval latency.
+
+CUDA synchronization is used when measuring GPU retrieval operations.
+
+---
+
+# Token Count
+
+If no generation tokenizer is supplied, `token_count` remains empty.
+
+This is intentional because token cost should be measured using the tokenizer of the final answer-generation model, not the Stella embedding tokenizer.
+
+If Llama 3.1 8B Instruct is used as the final generation model:
+
+```powershell
+python run_retrieval_pilot.py `
+  --pilot-file outputs/pilot/pilot_questions.json `
+  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --k 5 `
+  --generation-tokenizer meta-llama/Llama-3.1-8B-Instruct
 ```
 
 ---
 
-# 4. EDA, Statistical Analysis, and Figures
+# Quantitative Analysis
 
-### Analyze top-5 only
+Analyze Top-5 with:
 
 ```powershell
-python analyze_results.py --input outputs/pilot/retrieval_results_fixed.csv --output-dir outputs/analysis --k 5
+python analyze_results.py `
+  --input outputs/pilot/retrieval_results_v4_k5.csv `
+  --output-dir outputs/analysis `
+  --k 5
 ```
 
 Results are written to:
@@ -210,87 +577,112 @@ Results are written to:
 outputs/analysis/k5/
 ```
 
-### Analyze a CSV containing both top-5 and top-10
-
-Omit `--k`:
-
-```powershell
-python analyze_results.py --input outputs/pilot/retrieval_results_fixed.csv --output-dir outputs/analysis
-```
-
-The script will:
-
-1. analyze `k=5` and `k=10` separately rather than mixing them;
-2. create `outputs/analysis/cross_k/` automatically;
-3. generate top-5 vs top-10 comparison tables and paired cross-k tests.
-
-If top-5 and top-10 are stored in separate CSV files, both can be supplied:
-
-```powershell
-python analyze_results.py --input outputs/pilot/top5.csv outputs/pilot/top10.csv --output-dir outputs/analysis
-```
-
-### Main outputs produced for each k
+Main output tables include:
 
 ```text
-outputs/analysis/k5/
-├── missing_values.csv
-├── descriptive_ci_by_strategy.csv
-├── descriptive_ci_by_task_strategy.csv
-├── paired_wilcoxon_holm_overall.csv
-├── paired_wilcoxon_holm_by_task.csv
-├── paired_mcnemar_holm_overall.csv
-├── paired_mcnemar_holm_by_task.csv
-├── preprocessing_diagnostics.csv
-├── ci_round_recall_at_k_overall.pdf/png
-├── task_ci_round_recall_at_k.pdf/png
-├── ci_recall_any_at_k_overall.pdf/png
-├── task_ci_recall_any_at_k.pdf/png
-├── boxplot_round_recall_at_k.pdf/png
-├── boxplot_latency_ms.pdf/png
-├── tradeoff_round_recall_at_k_vs_latency_ms.pdf/png
-├── tradeoff_round_recall_at_k_vs_token_count.pdf/png   # when token_count is available
-├── hybrid_component_scale.pdf/png
-└── analysis_selection.txt
+missing_values.csv
+descriptive_ci_by_strategy.csv
+descriptive_ci_by_task_strategy.csv
+paired_wilcoxon_holm_overall.csv
+paired_wilcoxon_holm_by_task.csv
+paired_mcnemar_holm_overall.csv
+paired_mcnemar_holm_by_task.csv
+preprocessing_diagnostics.csv
+analysis_selection.txt
 ```
 
-The analysis uses:
-
-- paired Wilcoxon tests with Holm correction for `round_recall_at_k`, `session_recall_at_k`, latency, and token count;
-- **exact McNemar tests with Holm correction** for the paired binary outcome `recall_any_at_k`;
-- both overall comparisons and **task-level comparisons for IE / MR / KU / TR**;
-- **95% non-parametric bootstrap confidence intervals** for plotted performance estimates;
-- individual-question points in task-level figures so the small-sample structure is visible rather than hidden behind bar heights;
-- **Recall vs latency** trade-off plots for RQ3, plus **Recall vs token count** when token-count data are available;
-- automatic accuracy analysis if a future CSV contains `answer_correct`, including exact McNemar tests, task-level accuracy summaries, and Accuracy–Latency / Accuracy–Token trade-off figures;
-- an **Okabe–Ito colorblind-friendly palette**, together with different markers and hatching so the figures remain distinguishable in grayscale.
-
-### Top-5 vs Top-10 outputs
-
-If the input contains more than one k value, the script additionally creates:
+Main figures include:
 
 ```text
-outputs/analysis/cross_k/
-├── topk_comparison_table.csv
-├── top5_vs_top10_table.csv
-└── paired_topk_tests.csv
+ci_round_recall_at_k_overall.pdf/png
+task_ci_round_recall_at_k.pdf/png
+ci_recall_any_at_k_overall.pdf/png
+task_ci_recall_any_at_k.pdf/png
+boxplot_round_recall_at_k.pdf/png
+boxplot_latency_ms.pdf/png
+tradeoff_round_recall_at_k_vs_latency_ms.pdf/png
+hybrid_component_scale.pdf/png
 ```
 
-`paired_topk_tests.csv` compares k=5 and k=10 within the same retrieval strategy:
+If token counts are available:
 
-- continuous or bounded outcomes: paired Wilcoxon test;
-- binary outcomes such as recall-any: exact McNemar test;
-- Holm correction is applied across the three strategy-specific cross-k tests for each metric.
-
-**Pilot interpretation note:** each task currently contains only five questions. Task-level p-values should therefore be treated as an analysis-pipeline check or exploratory evidence, not as strong inferential conclusions. The main inferential interpretation should be performed on the larger experiment with approximately 50 questions per task.
+```text
+tradeoff_round_recall_at_k_vs_token_count.pdf/png
+```
 
 ---
 
-# 5. IE Sampling
+# Statistical Tests
 
-The manually checked 20-question pilot does not need to be resampled.
+The analysis includes:
 
-For the larger experiment, IE should preferably be stratified across its three subtypes:
+- descriptive statistics;
+- 95% non-parametric bootstrap confidence intervals;
+- paired Wilcoxon tests with Holm correction for:
+  - `round_recall_at_k`
+  - `session_recall_at_k`
+  - latency
+  - token count, when available;
+- exact McNemar tests with Holm correction for:
+  - `recall_any_at_k`;
+- overall comparisons;
+- task-level comparisons for:
+  - IE
+  - MR
+  - KU
+  - TR;
+- Recall vs latency trade-off plots;
+- Recall vs token-count trade-off plots when token counts are available;
+- Okabe-Ito colorblind-friendly plotting together with different markers and hatching.
+
+The pilot contains only five questions per task type, so task-level p-values should be interpreted as exploratory results rather than strong inferential conclusions.
+
+---
+
+# Top-5 and Top-10
+
+Top-10 can be run separately after Top-5:
+
+```powershell
+python run_retrieval_pilot.py `
+  --pilot-file outputs/pilot/pilot_questions.json `
+  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --k 10 `
+  --resume
+```
+
+If both k=5 and k=10 are stored in the same CSV, run:
+
+```powershell
+python analyze_results.py `
+  --input outputs/pilot/retrieval_results_v4_k5.csv `
+  --output-dir outputs/analysis
+```
+
+Do not specify `--k`.
+
+The analysis then creates:
+
+```text
+outputs/analysis/
+├── k5/
+├── k10/
+└── cross_k/
+```
+
+Cross-k outputs include:
+
+```text
+topk_comparison_table.csv
+top5_vs_top10_table.csv
+paired_topk_tests.csv
+```
+
+---
+
+# Larger Sample
+
+For the larger experiment, IE can be stratified across:
 
 ```text
 single-session-user
@@ -298,17 +690,61 @@ single-session-assistant
 single-session-preference
 ```
 
-`prepare_pilot_data.py` supports `--stratify-ie`:
+Example:
 
 ```powershell
-python prepare_pilot_data.py --data-root data/longmemeval-cleaned --per-task 50 --seed 42 --stratify-ie --output-dir outputs/full_sample
+python prepare_pilot_data.py `
+  --data-root data/longmemeval-cleaned `
+  --per-task 50 `
+  --seed 42 `
+  --stratify-ie `
+  --output-dir outputs/full_sample
 ```
 
 ---
 
-# 6. Save the Complete Runtime Environment
+# Answer Generation
 
-`requirements.txt` pins the direct dependencies used by this project. After the final experimental environment is working, save the complete environment with:
+The current code evaluates retrieval quality and efficiency.
+
+The later pipeline can extend this to:
+
+```text
+retrieved Top-k memories
+        ↓
+answer-generation LLM
+        ↓
+generated answer
+        ↓
+answer correctness evaluation
+```
+
+The planned generation model is:
+
+```text
+Llama 3.1 8B Instruct
+```
+
+Once answer generation is integrated, the analysis can additionally include:
+
+- answer accuracy;
+- exact McNemar tests for paired answer correctness;
+- Accuracy vs latency;
+- Accuracy vs token count.
+
+The current McNemar analysis for `recall_any_at_k` is an exploratory retrieval-level analysis.
+
+---
+
+# Save Runtime Information
+
+The repository contains:
+
+```text
+requirements-lock.txt
+```
+
+For a final experiment run, additional local runtime information can be saved with:
 
 ```powershell
 python -m pip freeze > outputs/pilot/environment.txt
@@ -316,25 +752,36 @@ python --version > outputs/pilot/python_version.txt
 nvidia-smi > outputs/pilot/gpu_info.txt
 ```
 
-This records transitive dependencies such as `tokenizers` and `huggingface_hub` without guessing their versions. Python 3.11 is recommended for the current environment.
+Because `outputs/` is ignored by Git, these files remain local unless archived separately.
 
 ---
 
-# 7. Report
-
-See:
+# Repository Structure
 
 ```text
-REPORT_OUTLINE.md
+longmemeval-retrieval-strategies/
+│
+├── README.md
+├── requirements.txt
+├── requirements-lock.txt
+├── .gitignore
+│
+├── config/
+│   └── pilot_ids.json
+│
+├── prepare_pilot_data.py
+├── inspect_dataset.py
+├── validate_pilot.py
+├── memory_adapter.py
+├── retrieval.py
+├── run_retrieval_pilot.py
+├── analyze_results.py
+├── test_retrieval.py
+├── test_time_handling.py
+│
+├── REPORT_OUTLINE.md
+├── CHANGELOG_v4.md
+│
+├── data/       # local only, ignored by Git
+└── outputs/    # local only, ignored by Git
 ```
-
-The report should explicitly state:
-
-- the dataset file used: `longmemeval_s_cleaned.json`;
-- one dialogue round = one memory item;
-- Recency is calculated from parsed `haystack_dates` timestamps;
-- future-session policy: only sessions whose calendar date is strictly later than the question date are excluded; later times on the same day are retained;
-- Stella's 512-token input limit and the observed truncation proportion;
-- definitions of round-level, any-hit, and session-level Recall;
-- Hybrid 0.5/0.5 weighting is the pre-registered primary condition; score-scale imbalance is treated as a diagnostic or limitation;
-- the 20-question pilot has limited statistical power and should not be used for strong conclusions.

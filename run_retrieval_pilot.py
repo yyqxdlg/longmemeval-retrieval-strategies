@@ -5,6 +5,14 @@ import csv
 import json
 from pathlib import Path
 
+from experiment_io import (
+    merge_resume_metadata,
+    read_json,
+    runtime_snapshot,
+    sha256_file,
+    write_json,
+)
+
 from memory_adapter import (
     record_to_memories,
     relevant_memory_ids,
@@ -39,6 +47,7 @@ FIELDS = [
     "recall_at_k",
     "latency_ms",
     "token_count",
+    "retrieved_context_token_count",
     "num_memories",
     "num_relevant_rounds",
     "num_gold_sessions",
@@ -64,7 +73,26 @@ FIELDS = [
 ]
 
 
-def load_generation_tokenizer(model_name: str | None):
+RESUME_SETTING_KEYS = (
+    "stella_model",
+    "stella_revision",
+    "device",
+    "precision",
+    "max_seq_length",
+    "batch_size",
+    "future_session_policy",
+    "generation_tokenizer",
+    "generation_tokenizer_revision",
+    "trust_generation_tokenizer_code",
+)
+
+
+def load_generation_tokenizer(
+    model_name: str | None,
+    *,
+    revision: str | None,
+    trust_remote_code: bool,
+):
     if not model_name:
         return None
 
@@ -73,11 +101,13 @@ def load_generation_tokenizer(model_name: str | None):
     print(f"Loading generation tokenizer: {model_name}")
     return AutoTokenizer.from_pretrained(
         model_name,
-        trust_remote_code=True,
+        revision=revision,
+        trust_remote_code=trust_remote_code,
     )
 
 
-def count_generation_tokens(retrieved, tokenizer, question_date):
+def count_retrieved_context_tokens(retrieved, tokenizer, question_date):
+    """Count only retrieved context; full prompt tokens are measured at generation."""
     if tokenizer is None:
         return ""
 
@@ -144,13 +174,6 @@ def load_completed_keys(path: Path) -> set[tuple[str, str, int]]:
     return keys
 
 
-def write_metadata(path: Path, payload: dict) -> None:
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pilot-file", required=True)
@@ -210,6 +233,16 @@ def main():
         ),
     )
     parser.add_argument(
+        "--generation-tokenizer-revision",
+        default=None,
+        help="Optional immutable Hugging Face revision for the generation tokenizer.",
+    )
+    parser.add_argument(
+        "--trust-generation-tokenizer-code",
+        action="store_true",
+        help="Allow custom tokenizer code. Not needed for Llama 3.1.",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help=(
@@ -244,7 +277,11 @@ def main():
         batch_size=args.batch_size,
         use_fp16=not args.fp32,
     )
-    tokenizer = load_generation_tokenizer(args.generation_tokenizer)
+    tokenizer = load_generation_tokenizer(
+        args.generation_tokenizer,
+        revision=args.generation_tokenizer_revision,
+        trust_remote_code=args.trust_generation_tokenizer_code,
+    )
 
     if tokenizer is None:
         print(
@@ -267,12 +304,30 @@ def main():
             else "exclude_strictly_later_calendar_dates; retain_same_day"
         ),
         "generation_tokenizer": args.generation_tokenizer,
+        "generation_tokenizer_revision": args.generation_tokenizer_revision,
+        "trust_generation_tokenizer_code": args.trust_generation_tokenizer_code,
+        "input_sha256": sha256_file(pilot_path),
         "latency": "1 warm-up + 5 measured runs; median reported",
         "checkpointing": "CSV flushed after every result row",
+        "run_history": [runtime_snapshot()],
     }
+    if args.resume:
+        if not metadata_path.exists():
+            raise SystemExit(
+                "--resume requires the existing metadata JSON; use a new output "
+                "file rather than mixing undocumented settings."
+            )
+        try:
+            metadata = merge_resume_metadata(
+                read_json(metadata_path),
+                metadata,
+                setting_keys=RESUME_SETTING_KEYS,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     # Write metadata BEFORE the expensive run so a partial CSV still has its
     # experimental settings if the process is interrupted.
-    write_metadata(metadata_path, metadata)
+    write_json(metadata_path, metadata)
 
     total = len(records)
     rows_written = 0
@@ -375,6 +430,12 @@ def main():
                         gold_sessions,
                     )
 
+                    retrieved_context_tokens = count_retrieved_context_tokens(
+                        retrieved,
+                        tokenizer,
+                        question_date,
+                    )
+
                     row = {
                         "question_id": qid,
                         "task_type": task,
@@ -396,11 +457,10 @@ def main():
                             "" if round_recall is None else round_recall
                         ),
                         "latency_ms": latency["median_ms"],
-                        "token_count": count_generation_tokens(
-                            retrieved,
-                            tokenizer,
-                            question_date,
-                        ),
+                        # Backward-compatible alias. This is retrieved context
+                        # only, not the complete chat-template prompt.
+                        "token_count": retrieved_context_tokens,
+                        "retrieved_context_token_count": retrieved_context_tokens,
                         "num_memories": len(memories),
                         "num_relevant_rounds": len(gold_round_ids),
                         "num_gold_sessions": len(gold_sessions),

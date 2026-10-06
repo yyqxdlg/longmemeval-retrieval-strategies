@@ -1,4 +1,4 @@
-# LongMemEval Retrieval Pilot — v4
+# LongMemEval Retrieval and Answer-Generation Pipeline — v5
 
 This repository contains the pilot implementation for the project **How Memory Retrieval Strategies Affect LLM Agent Performance**.
 
@@ -70,6 +70,19 @@ Install the remaining dependencies:
 ```powershell
 pip install -r requirements.txt
 ```
+
+Keep the checked retrieval environment separate from answer generation. Llama
+3.1 requires Transformers 4.43.2 or newer, while the completed retrieval run
+used Transformers 4.42.3. On the generation machine, install a matching CUDA
+PyTorch build and then:
+
+```powershell
+pip install -r requirements-generation.txt
+```
+
+Accept the Meta Llama 3.1 license on Hugging Face and authenticate before the
+first model download. A 4-bit run is the default in `run_generation.py`; use the
+same quantization and model revision for every experimental condition.
 
 `requirements-lock.txt` records the complete working environment, including transitive dependencies.
 
@@ -187,7 +200,8 @@ The checked pilot IDs are also stored in:
 config/pilot_ids.json
 ```
 
-This makes the pilot sampling reproducible even though `outputs/` is ignored by Git.
+This makes the pilot sampling reproducible. Selected pilot and analysis outputs
+are currently committed; the dataset and local caches remain ignored.
 
 ---
 
@@ -548,15 +562,21 @@ If no generation tokenizer is supplied, `token_count` remains empty.
 
 This is intentional because token cost should be measured using the tokenizer of the final answer-generation model, not the Stella embedding tokenizer.
 
-If Llama 3.1 8B Instruct is used as the final generation model:
+The retrieval runner can optionally count only the retrieved context with the
+final model tokenizer. Use a separate output file rather than overwriting the
+checked result:
 
 ```powershell
 python run_retrieval_pilot.py `
   --pilot-file outputs/pilot/pilot_questions.json `
-  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --output outputs/pilot/retrieval_results_v4_k5_with_context_tokens.csv `
   --k 5 `
   --generation-tokenizer meta-llama/Llama-3.1-8B-Instruct
 ```
+
+This value excludes the system prompt, question, chat template, and generated
+answer. `run_generation.py` records both `retrieved_context_token_count` and the
+complete `prompt_token_count`; use the latter for end-to-end cost analysis.
 
 ---
 
@@ -641,21 +661,24 @@ The pilot contains only five questions per task type, so task-level p-values sho
 
 # Top-5 and Top-10
 
-Top-10 can be run separately after Top-5:
+Run Top-10 into a separate raw-results file. This preserves the checked Top-5
+artifact and prevents different environments or tokenizer settings from being
+silently mixed:
 
 ```powershell
 python run_retrieval_pilot.py `
   --pilot-file outputs/pilot/pilot_questions.json `
-  --output outputs/pilot/retrieval_results_v4_k5.csv `
+  --output outputs/pilot/retrieval_results_v4_k10.csv `
   --k 10 `
-  --resume
+  --fp32 `
+  --batch-size 1
 ```
 
-If both k=5 and k=10 are stored in the same CSV, run:
+With both Top-5 and Top-10 result files, run:
 
 ```powershell
 python analyze_results.py `
-  --input outputs/pilot/retrieval_results_v4_k5.csv `
+  --input outputs/pilot/retrieval_results_v4_k5.csv outputs/pilot/retrieval_results_v4_k10.csv `
   --output-dir outputs/analysis
 ```
 
@@ -705,9 +728,8 @@ python prepare_pilot_data.py `
 
 # Answer Generation
 
-The current code evaluates retrieval quality and efficiency.
-
-The later pipeline can extend this to:
+The repository separates retrieval from answer generation so raw retrieval
+results remain immutable:
 
 ```text
 retrieved Top-k memories
@@ -719,40 +741,117 @@ generated answer
 answer correctness evaluation
 ```
 
-The planned generation model is:
+The answer model is:
 
 ```text
 Llama 3.1 8B Instruct
 ```
 
-Once answer generation is integrated, the analysis can additionally include:
+Install the generation dependencies in a separate environment, then generate
+answers for each retrieval file. The default is deterministic 4-bit inference
+with `do_sample=False`, seed 42, and at most 128 new tokens:
+
+```powershell
+python run_generation.py `
+  --pilot-file outputs/pilot/pilot_questions.json `
+  --retrieval-results outputs/pilot/retrieval_results_v4_k5.csv `
+  --output outputs/generation/generation_results_k5.csv `
+  --model-name meta-llama/Llama-3.1-8B-Instruct `
+  --model-revision main `
+  --quantization 4bit
+```
+
+Before the full run, append `--limit 1` as a smoke test. If that row is valid,
+rerun the same command without `--limit` and add `--resume`; the completed row
+will be skipped after the metadata settings are checked.
+
+The run records the resolved Hugging Face commit. For subsequent confirmatory
+runs, pass that immutable commit instead of `main`. The generated prompt is
+constructed only from the question, question date, and retrieved memory text;
+gold answers, relevance flags, answer-session IDs, and task labels are not
+accepted by the prompt-building function.
+
+For Top-10, repeat the command with the Top-10 retrieval CSV and a separate
+generation output. Do not change the prompt, model, revision, quantization, or
+decoding settings between strategies or k values.
+
+Generation outputs add:
+
+```text
+generated_answer
+retrieved_context_token_count
+prompt_token_count
+completion_token_count
+generation_latency_ms
+total_latency_ms
+answer_model_revision
+context_sha256
+```
+
+## Official Answer Correctness Evaluation
+
+Export generated answers in the official LongMemEval hypothesis format:
+
+```powershell
+python longmemeval_eval.py export `
+  --input outputs/generation/generation_results_k5.csv `
+  --output outputs/evaluation/hypotheses_k5.jsonl
+```
+
+Run LongMemEval's official evaluator from a checked-out copy of the benchmark.
+The evaluator requires `OPENAI_API_KEY` when `gpt-4o` is used as the judge:
+
+```powershell
+python path/to/LongMemEval/src/evaluation/evaluate_qa.py `
+  gpt-4o `
+  outputs/evaluation/hypotheses_k5.jsonl `
+  outputs/pilot/pilot_questions.json
+```
+
+Merge the official labels back into a new, scored CSV:
+
+```powershell
+python longmemeval_eval.py merge `
+  --generation-results outputs/generation/generation_results_k5.csv `
+  --evaluation-log outputs/evaluation/hypotheses_k5.jsonl.eval-results-gpt-4o `
+  --output outputs/generation/generation_results_k5_scored.csv
+```
+
+Then analyze scored Top-5 and Top-10 files together:
+
+```powershell
+python analyze_results.py `
+  --input outputs/generation/generation_results_k5_scored.csv outputs/generation/generation_results_k10_scored.csv `
+  --output-dir outputs/analysis_end_to_end
+```
+
+The analysis then includes:
 
 - answer accuracy;
 - exact McNemar tests for paired answer correctness;
-- Accuracy vs latency;
-- Accuracy vs token count.
+- Accuracy vs total retrieval-plus-generation latency;
+- Accuracy vs complete prompt token count.
 
-The current McNemar analysis for `recall_any_at_k` is an exploratory retrieval-level analysis.
+The retrieval-only McNemar analysis for `recall_any_at_k` remains distinct from
+the final McNemar analysis of `answer_correct`.
 
 ---
 
 # Save Runtime Information
 
-The repository contains:
-
-```text
-requirements-lock.txt
-```
-
-For a final experiment run, additional local runtime information can be saved with:
+Save provenance into a run-specific directory rather than overwriting another
+machine's metadata:
 
 ```powershell
-python -m pip freeze > outputs/pilot/environment.txt
-python --version > outputs/pilot/python_version.txt
-nvidia-smi > outputs/pilot/gpu_info.txt
+python save_runtime_info.py --output-dir outputs/runtime/retrieval_YYYYMMDD
+python save_runtime_info.py --output-dir outputs/runtime/generation_YYYYMMDD
 ```
 
-Because `outputs/` is ignored by Git, these files remain local unless archived separately.
+The files are written as UTF-8 and include a structured `runtime.json`. The
+older files under `outputs/pilot/` describe the RTX 4070 preparation machine;
+the preliminary report documents the separate RTX 5070 Ti run that produced
+the checked fp32 results. Do not treat either machine's files as provenance for
+a new run.
 
 ---
 
@@ -763,6 +862,7 @@ longmemeval-retrieval-strategies/
 │
 ├── README.md
 ├── requirements.txt
+├── requirements-generation.txt
 ├── requirements-lock.txt
 ├── .gitignore
 │
@@ -775,13 +875,20 @@ longmemeval-retrieval-strategies/
 ├── memory_adapter.py
 ├── retrieval.py
 ├── run_retrieval_pilot.py
+├── generation.py
+├── run_generation.py
+├── longmemeval_eval.py
+├── experiment_io.py
+├── save_runtime_info.py
 ├── analyze_results.py
 ├── test_retrieval.py
 ├── test_time_handling.py
+├── test_pipeline.py
 │
 ├── REPORT_OUTLINE.md
 ├── CHANGELOG_v4.md
+├── CHANGELOG_v5.md
 │
 ├── data/       # local only, ignored by Git
-└── outputs/    # local only, ignored by Git
+└── outputs/    # checked artifacts plus new run outputs
 ```

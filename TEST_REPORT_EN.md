@@ -56,7 +56,7 @@ The results are limited in both accuracy and generality. Twenty paired questions
 
 ## 7. Reproducibility and limitations
 
-The valid run used Python 3.10.20, PyTorch 2.11.0+cu128, Sentence Transformers 3.0.1, Transformers 4.42.3, an RTX 5070 Ti Laptop GPU, fp32 precision, batch size 1, and the pinned Stella revision above. The machine's initial fp16 run produced non-finite semantic scores and was discarded; a small sanity example alone did not reveal that failure. The repository's recommendation of Python 3.11 and PyTorch 2.3.1 was not used on this GPU. Measured latency includes retrieval after memory embeddings are prepared, but excludes one-time embedding preprocessing. Answer correctness and retrieved token costs remain unmeasured.
+The valid run used Python 3.10.20, PyTorch 2.11.0+cu128, Sentence Transformers 3.0.1, Transformers 4.42.3, an RTX 5070 Ti Laptop GPU, fp32 precision, batch size 1, and the pinned Stella revision above. The machine's initial fp16 run produced non-finite semantic scores and was discarded; a small sanity example alone did not reveal that failure. The repository's recommendation of Python 3.11 and PyTorch 2.3.1 was not used on this GPU. The historical `outputs/pilot/environment.txt`, `gpu_info.txt`, and `python_version.txt` files were captured on a separate RTX 4070 preparation machine and are not the provenance record for this valid run. Measured latency includes retrieval after memory embeddings are prepared, but excludes one-time embedding preprocessing. Answer correctness and retrieved token costs remain unmeasured.
 
 Run commands (from the repository root):
 

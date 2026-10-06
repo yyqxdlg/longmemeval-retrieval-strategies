@@ -611,6 +611,11 @@ def analyze_one_k(df: pd.DataFrame, selected_k: int, base_out_dir: Path) -> None
         "session_recall_at_k",
         "latency_ms",
         "token_count",
+        "retrieved_context_token_count",
+        "prompt_token_count",
+        "completion_token_count",
+        "generation_latency_ms",
+        "total_latency_ms",
         "answer_correct",
     ]:
         if col in local.columns:
@@ -640,6 +645,11 @@ def analyze_one_k(df: pd.DataFrame, selected_k: int, base_out_dir: Path) -> None
             "session_recall_at_k",
             "latency_ms",
             "token_count",
+            "retrieved_context_token_count",
+            "prompt_token_count",
+            "completion_token_count",
+            "generation_latency_ms",
+            "total_latency_ms",
             "answer_correct",
         ]
         if c in local.columns and local[c].notna().any()
@@ -660,6 +670,11 @@ def analyze_one_k(df: pd.DataFrame, selected_k: int, base_out_dir: Path) -> None
             "session_recall_at_k",
             "latency_ms",
             "token_count",
+            "retrieved_context_token_count",
+            "prompt_token_count",
+            "completion_token_count",
+            "generation_latency_ms",
+            "total_latency_ms",
         ]
         if c in numeric_metrics
     ]
@@ -802,22 +817,43 @@ def analyze_one_k(df: pd.DataFrame, selected_k: int, base_out_dir: Path) -> None
         performance_metrics.append(("answer_correct", "Answer accuracy"))
 
     for perf_metric, perf_label in performance_metrics:
-        if "latency_ms" in numeric_metrics:
+        latency_metric = (
+            "total_latency_ms"
+            if perf_metric == "answer_correct" and "total_latency_ms" in numeric_metrics
+            else "latency_ms"
+        )
+        latency_label = (
+            "Median retrieval + generation latency (ms, log scale)"
+            if latency_metric == "total_latency_ms"
+            else "Median retrieval latency (ms, log scale)"
+        )
+        if latency_metric in numeric_metrics:
             plot_tradeoff(
                 local,
                 performance_metric=perf_metric,
-                cost_metric="latency_ms",
+                cost_metric=latency_metric,
                 performance_label=perf_label,
-                cost_label="Median retrieval latency (ms, log scale)",
+                cost_label=latency_label,
                 out_dir=out_dir,
             )
-        if "token_count" in numeric_metrics:
+
+        token_metric = (
+            "prompt_token_count"
+            if perf_metric == "answer_correct" and "prompt_token_count" in numeric_metrics
+            else "token_count"
+        )
+        token_label = (
+            "Median complete prompt token count"
+            if token_metric == "prompt_token_count"
+            else "Median retrieved context token count"
+        )
+        if token_metric in numeric_metrics:
             plot_tradeoff(
                 local,
                 performance_metric=perf_metric,
-                cost_metric="token_count",
+                cost_metric=token_metric,
                 performance_label=perf_label,
-                cost_label="Median retrieved token count",
+                cost_label=token_label,
                 out_dir=out_dir,
             )
 
@@ -854,6 +890,11 @@ def cross_k_summary(df: pd.DataFrame, out_dir: Path) -> None:
             "session_recall_at_k",
             "latency_ms",
             "token_count",
+            "retrieved_context_token_count",
+            "prompt_token_count",
+            "completion_token_count",
+            "generation_latency_ms",
+            "total_latency_ms",
             "answer_correct",
         ]
         if c in df.columns and pd.to_numeric(df[c], errors="coerce").notna().any()
@@ -1119,7 +1160,7 @@ def main() -> None:
                 "Task-level tests have very small n in the pilot and should not be used for strong claims.",
                 "Figures use the Okabe-Ito colorblind-safe palette plus distinct markers/hatches.",
                 "Error bars are non-parametric bootstrap 95% confidence intervals across questions.",
-                "Latency/token trade-off plots use median cost on the x-axis and mean performance on the y-axis.",
+                "Retrieval trade-offs use retrieval latency/context tokens; answer trade-offs prefer total latency/full prompt tokens.",
                 "Top-k conditions are analyzed separately; cross-k output is created only from explicitly present k values.",
             ]
         )

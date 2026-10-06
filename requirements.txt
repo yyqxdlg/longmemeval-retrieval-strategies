@@ -1,3 +1,5 @@
+# Retrieval/analysis environment only. Answer generation uses
+# requirements-generation.txt because Llama 3.1 requires newer Transformers.
 # Recommended runtime: Python 3.11 on Windows.
 # Install PyTorch separately first so the correct CUDA wheel is used:
 # pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121

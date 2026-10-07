@@ -728,6 +728,91 @@ python prepare_pilot_data.py `
 
 # Answer Generation
 
+The completed retrieval-host run and the authorized-host generation handoff
+are summarized in `LOCAL_RUN_SUMMARY.md` and `TEAMMATE_HANDOFF.md`. The
+retrieval host was denied access to the official gated Llama repository, so it
+does not claim local generation results.
+
+## Confirmatory 200-question local run
+
+The confirmatory run is separate from the checked 20-question pilot. Its fixed
+IDs are stored in `config/confirmatory_200_ids.json`. Generate the full local
+records from the ignored dataset with:
+
+```powershell
+python prepare_pilot_data.py `
+  --data-root data/longmemeval-cleaned `
+  --per-task 50 `
+  --seed 42 `
+  --stratify-ie `
+  --output-dir outputs/confirmatory_200
+```
+
+Run all five retrieval conditions and both retrieval depths in one pass so the
+Stella document and query embeddings are shared:
+
+```powershell
+python run_retrieval_pilot.py `
+  --pilot-file outputs/confirmatory_200/pilot_questions.json `
+  --output outputs/confirmatory_200/retrieval_stella512_fp32_k5_k10.csv `
+  --k 5 10 `
+  --fp32 `
+  --batch-size 1 `
+  --max-seq-length 512
+```
+
+The default conditions are `recency`, `semantic`, `hybrid_raw`,
+`hybrid_minmax`, and `hybrid_rrf`. The original primary hybrid formula is
+unchanged; the latter two are sensitivity conditions. Use `--resume` with the
+same output and settings after interruption. Use `--question-id ...` for a
+small smoke or sensitivity subset.
+
+After validation, split the primary and hybrid-sensitivity tables without
+recomputing embeddings:
+
+```powershell
+python organize_confirmatory_retrieval.py `
+  --input outputs/confirmatory_200/retrieval_stella512_fp32_k5_k10.csv `
+  --main-output-dir outputs/confirmatory_200 `
+  --hybrid-output-dir outputs/sensitivity_hybrid
+```
+
+Stella 1024 is a separate retrieval-only sensitivity run. Compare its complete
+CSV to the 512 CSV with `compare_stella_sensitivity.py`; do not pool it into the
+main analysis.
+
+Generate the retrieval conditions plus the two k=0 baselines locally with one
+frozen Llama revision:
+
+```powershell
+python run_generation.py `
+  --pilot-file outputs/confirmatory_200/pilot_questions.json `
+  --retrieval-results outputs/confirmatory_200/retrieval_stella512_fp32_k5_k10.csv `
+  --output outputs/generation_local/generation_all_conditions.csv `
+  --model-name meta-llama/Llama-3.1-8B-Instruct `
+  --model-revision <immutable-commit> `
+  --quantization 4bit `
+  --max-new-tokens 128 `
+  --seed 42 `
+  --include-baselines
+```
+
+The script refuses CPU/disk model offload unless explicitly overridden. It
+flushes every row and validates model, revision, quantization, prompt, and
+decoding settings before resume. Export one pending official-evaluation JSONL
+per condition with:
+
+```powershell
+python longmemeval_eval.py export `
+  --input outputs/generation_local/generation_all_conditions.csv `
+  --output outputs/hypotheses_pending `
+  --split-by-condition
+```
+
+For local-only completion, token/latency, exploratory string diagnostics, and a
+28-row manual audit template, use `analyze_local_generation.py`. Its string
+metrics are explicitly exploratory and are not official answer accuracy.
+
 The repository separates retrieval from answer generation so raw retrieval
 results remain immutable:
 

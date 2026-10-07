@@ -7,8 +7,18 @@ import unittest
 from pathlib import Path
 
 from experiment_io import merge_resume_metadata
-from generation import build_answer_messages, reconstruct_retrieved_memories
-from longmemeval_eval import export_hypotheses, merge_scores, parse_label
+from generation import (
+    build_answer_messages,
+    oracle_memories,
+    reconstruct_retrieved_memories,
+)
+from longmemeval_eval import (
+    export_hypotheses,
+    export_hypotheses_by_condition,
+    merge_scores,
+    parse_label,
+)
+from save_runtime_info import disk_usage_snapshot
 
 
 def sample_record() -> dict:
@@ -57,9 +67,49 @@ class GenerationInputTests(unittest.TestCase):
         self.assertNotIn("is_gold_session", prompt)
         self.assertLess(prompt.index("2023/05/28"), prompt.index("2023/05/29"))
 
+    def test_disk_usage_snapshot_accepts_relative_path(self):
+        snapshot = disk_usage_snapshot(Path("."))
+        self.assertTrue(snapshot["root"])
+        self.assertGreater(snapshot["total_bytes"], 0)
+        self.assertGreaterEqual(snapshot["free_bytes"], 0)
+
     def test_missing_memory_id_fails(self):
         with self.assertRaises(ValueError):
             reconstruct_retrieved_memories(sample_record(), "missing::round_0")
+
+    def test_no_retrieval_prompt_has_no_gold_or_labels(self):
+        record = sample_record()
+        record["answer"] = "GOLD_ONLY_SENTINEL"
+        messages, _ = build_answer_messages(
+            question=record["question"],
+            question_date=record["question_date"],
+            retrieved_memories=[],
+        )
+        prompt = json.dumps(messages)
+        self.assertNotIn("GOLD_ONLY_SENTINEL", prompt)
+        self.assertNotIn("has_answer", prompt)
+        self.assertNotIn("answer_session_ids", prompt)
+
+    def test_oracle_prompt_contains_only_raw_dialogue_and_dates(self):
+        record = sample_record()
+        record["answer"] = "GOLD_ONLY_SENTINEL"
+        evidence = oracle_memories(record)
+        self.assertEqual([item["id"] for item in evidence], ["s1::round_0"])
+        messages, _ = build_answer_messages(
+            question=record["question"],
+            question_date=record["question_date"],
+            retrieved_memories=evidence,
+        )
+        prompt = json.dumps(messages)
+        self.assertIn("I prefer green tea.", prompt)
+        for forbidden in (
+            "GOLD_ONLY_SENTINEL",
+            "has_answer",
+            "answer_session_ids",
+            "is_round_relevant",
+            "is_gold_session",
+        ):
+            self.assertNotIn(forbidden, prompt)
 
 
 class MetadataTests(unittest.TestCase):
@@ -122,6 +172,36 @@ class OfficialEvaluationIoTests(unittest.TestCase):
                 row = next(csv.DictReader(handle))
             self.assertEqual(row["answer_correct"], "1")
             self.assertEqual(row["judge_model"], "judge")
+
+    def test_split_export_preserves_condition_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generation_csv = root / "generation.csv"
+            with generation_csv.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=["question_id", "strategy", "k", "generated_answer"],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "question_id": "q1",
+                        "strategy": "hybrid_rrf",
+                        "k": 10,
+                        "generated_answer": "answer",
+                    }
+                )
+            counts = export_hypotheses_by_condition(generation_csv, root / "split")
+            self.assertEqual(counts, {"hybrid_rrf_k10": 1})
+            payload = json.loads(
+                (root / "split" / "hybrid_rrf_k10.jsonl").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                (payload["question_id"], payload["strategy"], payload["k"]),
+                ("q1", "hybrid_rrf", 10),
+            )
 
 
 if __name__ == "__main__":

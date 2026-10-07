@@ -58,6 +58,7 @@ class StellaRetriever:
         self.tokenizer = getattr(self.model, "tokenizer", None)
         if self.tokenizer is None:
             self.tokenizer = self.model._first_module().tokenizer
+        self.tokenizer.model_max_length = max_seq_length
 
     def encode_memories(
         self,
@@ -91,6 +92,33 @@ class StellaRetriever:
     ) -> np.ndarray:
         query_embedding = self.encode_query(query)
         return memory_embeddings @ query_embedding
+
+    def score_query(
+        self,
+        query: str,
+        memories: list[dict[str, Any]],
+        memory_embeddings: np.ndarray,
+    ) -> dict[str, np.ndarray | bool]:
+        """Compute every reusable per-question retrieval score once."""
+        cosine_scores = self.semantic_cosine_scores(query, memory_embeddings)
+        if not np.isfinite(cosine_scores).all():
+            raise FloatingPointError("Stella produced non-finite semantic scores")
+        recency_scores = calculate_recency_scores(memories)
+        semantic_scaled = (cosine_scores + 1.0) / 2.0
+        semantic_minmax, semantic_constant = minmax_normalize(cosine_scores)
+        recency_minmax, recency_constant = minmax_normalize(recency_scores)
+        semantic_ranks = stable_ranks(cosine_scores, memories)
+        recency_ranks = stable_ranks(recency_scores, memories)
+        return {
+            "cosine": cosine_scores,
+            "semantic_scaled": semantic_scaled,
+            "recency": recency_scores,
+            "hybrid_raw": 0.5 * semantic_scaled + 0.5 * recency_scores,
+            "hybrid_minmax": 0.5 * semantic_minmax + 0.5 * recency_minmax,
+            "hybrid_rrf": 1.0 / (60.0 + semantic_ranks) + 1.0 / (60.0 + recency_ranks),
+            "semantic_minmax_constant": semantic_constant,
+            "recency_minmax_constant": recency_constant,
+        }
 
     def token_length_diagnostics(
         self,
@@ -127,10 +155,12 @@ class StellaRetriever:
         query: str,
         memories: list[dict[str, Any]],
         memory_embeddings: np.ndarray,
+        score_bundle: dict[str, np.ndarray | bool] | None = None,
     ) -> dict[str, float]:
-        cosine_scores = self.semantic_cosine_scores(query, memory_embeddings)
-        semantic_scores = (cosine_scores + 1.0) / 2.0
-        recency_scores = calculate_recency_scores(memories)
+        if score_bundle is None:
+            score_bundle = self.score_query(query, memories, memory_embeddings)
+        semantic_scores = np.asarray(score_bundle["semantic_scaled"], dtype=float)
+        recency_scores = np.asarray(score_bundle["recency"], dtype=float)
 
         def std(x: np.ndarray) -> float:
             return float(np.std(x, ddof=1)) if len(x) > 1 else 0.0
@@ -179,6 +209,62 @@ def calculate_recency_scores(
     return scores
 
 
+def minmax_normalize(values: np.ndarray) -> tuple[np.ndarray, bool]:
+    values = np.asarray(values, dtype=float)
+    if values.size == 0:
+        return values, False
+    low = float(np.min(values))
+    high = float(np.max(values))
+    if np.isclose(low, high):
+        return np.full(values.shape, 0.5, dtype=float), True
+    return (values - low) / (high - low), False
+
+
+def _stable_memory_key(memory: dict[str, Any]) -> tuple:
+    return (
+        str(memory.get("session_id", "")),
+        int(memory.get("round_index", 0)),
+        str(memory.get("id", "")),
+    )
+
+
+def stable_rank_indices(
+    scores: np.ndarray,
+    memories: list[dict[str, Any]],
+) -> list[int]:
+    """Rank descending with a deterministic memory-identity tie break."""
+    return sorted(
+        range(len(memories)),
+        key=lambda index: (-float(scores[index]), _stable_memory_key(memories[index])),
+    )
+
+
+def stable_ranks(scores: np.ndarray, memories: list[dict[str, Any]]) -> np.ndarray:
+    """Return one-based ordinal ranks (no ambiguous tied ranks)."""
+    ranks = np.empty(len(memories), dtype=float)
+    for rank, index in enumerate(stable_rank_indices(scores, memories), start=1):
+        ranks[index] = rank
+    return ranks
+
+
+def retrieve_from_scores(
+    memories: list[dict[str, Any]],
+    scores: np.ndarray,
+    *,
+    k: int,
+    score_name: str,
+    component_scores: dict[str, np.ndarray] | None = None,
+) -> list[dict[str, Any]]:
+    results = []
+    for index in stable_rank_indices(scores, memories)[:k]:
+        item = dict(memories[index])
+        item[score_name] = float(scores[index])
+        for name, values in (component_scores or {}).items():
+            item[name] = float(values[index])
+        results.append(item)
+    return results
+
+
 def retrieve_semantic(
     query: str,
     memories: list[dict[str, Any]],
@@ -195,6 +281,19 @@ def retrieve_semantic(
         item["semantic_cosine"] = float(cosine_scores[index])
         results.append(item)
     return results
+
+
+def retrieve_semantic_from_scores(
+    memories: list[dict[str, Any]],
+    cosine_scores: np.ndarray,
+    k: int = 5,
+) -> list[dict[str, Any]]:
+    return retrieve_from_scores(
+        memories,
+        cosine_scores,
+        k=k,
+        score_name="semantic_cosine",
+    )
 
 
 def retrieve_hybrid(
@@ -222,6 +321,29 @@ def retrieve_hybrid(
         item["hybrid_score"] = float(hybrid_scores[index])
         results.append(item)
     return results
+
+
+def retrieve_hybrid_from_scores(
+    memories: list[dict[str, Any]],
+    score_bundle: dict[str, np.ndarray | bool],
+    *,
+    strategy: str,
+    k: int = 5,
+) -> list[dict[str, Any]]:
+    if strategy not in {"hybrid_raw", "hybrid_minmax", "hybrid_rrf"}:
+        raise ValueError(strategy)
+    scores = np.asarray(score_bundle[strategy], dtype=float)
+    components = {
+        "semantic_score": np.asarray(score_bundle["semantic_scaled"], dtype=float),
+        "recency_score": np.asarray(score_bundle["recency"], dtype=float),
+    }
+    return retrieve_from_scores(
+        memories,
+        scores,
+        k=k,
+        score_name=f"{strategy}_score",
+        component_scores=components,
+    )
 
 
 def calculate_round_recall_at_k(

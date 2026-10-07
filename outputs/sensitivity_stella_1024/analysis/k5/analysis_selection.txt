@@ -1,0 +1,5 @@
+k=5
+n_rows=1000
+n_questions=200
+task-level tests are interpreted according to the sample size in this run
+Holm correction is applied within each metric/scope family of strategy pairs

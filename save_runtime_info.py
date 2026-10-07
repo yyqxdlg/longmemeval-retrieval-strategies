@@ -3,11 +3,23 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from experiment_io import runtime_snapshot
+
+
+def disk_usage_snapshot(output_dir: Path) -> dict[str, int | str]:
+    resolved = output_dir.resolve()
+    disk = shutil.disk_usage(resolved.anchor)
+    return {
+        "root": resolved.anchor,
+        "total_bytes": disk.total,
+        "used_bytes": disk.used,
+        "free_bytes": disk.free,
+    }
 
 
 def main() -> None:
@@ -17,10 +29,11 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir)
+    output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     snapshot = runtime_snapshot()
+    snapshot["output_disk"] = disk_usage_snapshot(output_dir)
     (output_dir / "runtime.json").write_text(
         json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -54,6 +67,7 @@ def main() -> None:
         gpu_text = result.stdout or result.stderr
     except FileNotFoundError:
         gpu_text = "nvidia-smi is not available on this machine.\n"
+    gpu_text = "\n".join(line.rstrip() for line in gpu_text.splitlines()) + "\n"
     (output_dir / "gpu_info.txt").write_text(gpu_text, encoding="utf-8")
 
     print(f"Runtime information written to: {output_dir}")

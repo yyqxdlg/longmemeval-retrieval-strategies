@@ -1,5 +1,6 @@
 # Python environment
 .venv/
+.venv-*/
 venv/
 __pycache__/
 *.pyc
@@ -13,10 +14,22 @@ __pycache__/
 data/
 
 # Raw experiment outputs
+outputs/confirmatory_200/pilot_questions.json
+outputs/confirmatory_200/pilot_manifest.csv
+outputs/confirmatory_200/pilot_ids.json
+outputs/manual_audit/*.csv
+outputs/analysis_generation/generation_row_diagnostics.csv
+outputs/smoke_3/
+outputs/sensitivity_stella_1024/smoke_4_k5_k10.csv
+outputs/sensitivity_stella_1024/smoke_4_k5_k10.metadata.json
 
 
 # Local caches / logs
 .cache/
+hf-cache/
+model/
+*.safetensors
+*.bin
 *.log
 
 # Archives

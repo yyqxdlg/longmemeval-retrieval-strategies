@@ -1,0 +1,81 @@
+{
+  "stella_model": "NovaSearch/stella_en_1.5B_v5",
+  "stella_revision": "7817065102fd9e1b031fe874e910c01f40b2f001",
+  "device": "cuda",
+  "precision": "fp32",
+  "max_seq_length": 512,
+  "batch_size": 1,
+  "k_values": [
+    5,
+    10
+  ],
+  "strategies": [
+    "recency",
+    "semantic",
+    "hybrid_raw",
+    "hybrid_minmax",
+    "hybrid_rrf"
+  ],
+  "selected_question_ids": null,
+  "future_session_policy": "exclude_strictly_later_calendar_dates; retain_same_day",
+  "generation_tokenizer": null,
+  "generation_tokenizer_revision": null,
+  "trust_generation_tokenizer_code": false,
+  "input_sha256": "586a14e73f598885be4480094a98aabd263b1378e5beee062c4304df84ba7b19",
+  "latency": "1 warm-up + 5 measured runs; median reported",
+  "checkpointing": "CSV flushed after every result row",
+  "run_history": [
+    {
+      "captured_at_utc": "2026-10-07T09:06:05.161512+00:00",
+      "python": "3.11.17 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:16:54) [MSC v.1942 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.26200-SP0",
+      "packages": {
+        "torch": "2.7.1+cu128",
+        "transformers": "4.42.3",
+        "sentence-transformers": "3.0.1",
+        "accelerate": null,
+        "bitsandbytes": null,
+        "numpy": "1.26.4",
+        "pandas": "2.2.2",
+        "scipy": "1.17.1"
+      },
+      "cuda_available": true,
+      "cuda_version": "12.8",
+      "cudnn_version": 90701,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 5070 Ti Laptop GPU"
+      ],
+      "git_commit": null,
+      "git_dirty": null
+    },
+    {
+      "captured_at_utc": "2026-10-07T10:46:35.301371+00:00",
+      "python": "3.11.17 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:16:54) [MSC v.1942 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.26200-SP0",
+      "packages": {
+        "torch": "2.7.1+cu128",
+        "transformers": "4.42.3",
+        "sentence-transformers": "3.0.1",
+        "accelerate": null,
+        "bitsandbytes": null,
+        "numpy": "1.26.4",
+        "pandas": "2.2.2",
+        "scipy": "1.17.1"
+      },
+      "cuda_available": true,
+      "cuda_version": "12.8",
+      "cudnn_version": 90701,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 5070 Ti Laptop GPU"
+      ],
+      "git_commit": "14678f9b2a1e3a3d6b3818579f3e3b299dd116ea",
+      "git_dirty": true
+    }
+  ],
+  "latency_scope": "ranking from shared precomputed document/query embeddings; Stella encoding is excluded",
+  "completed_at_utc": "2026-10-07T10:46:35.660519+00:00",
+  "expected_rows": 2000,
+  "actual_rows": 2000,
+  "complete": true,
+  "rows_written_this_invocation": 0
+}

@@ -62,15 +62,22 @@ def runtime_snapshot() -> dict[str, Any]:
         snapshot["torch_runtime_error"] = repr(exc)
 
     repo_root = Path(__file__).resolve().parent
+    git_prefix = [
+        "git",
+        "-c",
+        f"safe.directory={repo_root.as_posix()}",
+        "-C",
+        str(repo_root),
+    ]
     try:
         commit = subprocess.run(
-            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            [*git_prefix, "rev-parse", "HEAD"],
             check=True,
             capture_output=True,
             text=True,
         ).stdout.strip()
         dirty = subprocess.run(
-            ["git", "-C", str(repo_root), "status", "--porcelain"],
+            [*git_prefix, "status", "--porcelain"],
             check=True,
             capture_output=True,
             text=True,

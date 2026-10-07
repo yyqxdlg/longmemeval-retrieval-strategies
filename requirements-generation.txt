@@ -4,3 +4,4 @@ transformers>=4.43.2,<5
 accelerate>=0.33.0
 bitsandbytes>=0.43.3
 safetensors>=0.4.3
+huggingface_hub>=0.25.0

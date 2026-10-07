@@ -1,0 +1,29 @@
+{
+  "captured_at_utc": "2026-10-07T12:50:51.578346+00:00",
+  "python": "3.11.17 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:16:54) [MSC v.1942 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "packages": {
+    "torch": "2.7.1+cu128",
+    "transformers": "4.42.3",
+    "sentence-transformers": "3.0.1",
+    "accelerate": null,
+    "bitsandbytes": null,
+    "numpy": "1.26.4",
+    "pandas": "2.2.2",
+    "scipy": "1.17.1"
+  },
+  "cuda_available": true,
+  "cuda_version": "12.8",
+  "cudnn_version": 90701,
+  "gpu_names": [
+    "NVIDIA GeForce RTX 5070 Ti Laptop GPU"
+  ],
+  "git_commit": "14678f9b2a1e3a3d6b3818579f3e3b299dd116ea",
+  "git_dirty": true,
+  "output_disk": {
+    "root": "D:\\",
+    "total_bytes": 754973667328,
+    "used_bytes": 455396978688,
+    "free_bytes": 299576688640
+  }
+}

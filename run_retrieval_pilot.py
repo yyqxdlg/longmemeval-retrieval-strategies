@@ -5,6 +5,9 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
+import torch
+
 from experiment_io import (
     merge_resume_metadata,
     read_json,
@@ -25,8 +28,8 @@ from retrieval import (
     STELLA_REVISION,
     StellaRetriever,
     retrieve_recency,
-    retrieve_semantic,
-    retrieve_hybrid,
+    retrieve_semantic_from_scores,
+    retrieve_hybrid_from_scores,
     calculate_round_recall_at_k,
     calculate_recall_any_at_k,
     calculate_session_recall_at_k,
@@ -68,9 +71,22 @@ FIELDS = [
     "recency_score_std_all",
     "recency_score_min_all",
     "recency_score_max_all",
+    "semantic_minmax_constant",
+    "recency_minmax_constant",
+    "semantic_scores_all_finite",
+    "memory_embeddings_all_finite",
+    "gpu_peak_memory_bytes",
     "retrieved_memory_ids",
     "retrieved_session_ids",
 ]
+
+DEFAULT_STRATEGIES = (
+    "recency",
+    "semantic",
+    "hybrid_raw",
+    "hybrid_minmax",
+    "hybrid_rrf",
+)
 
 
 RESUME_SETTING_KEYS = (
@@ -84,6 +100,8 @@ RESUME_SETTING_KEYS = (
     "generation_tokenizer",
     "generation_tokenizer_revision",
     "trust_generation_tokenizer_code",
+    "strategies",
+    "selected_question_ids",
 )
 
 
@@ -121,28 +139,23 @@ def count_retrieved_context_tokens(retrieved, tokenizer, question_date):
 
 def run_one_strategy(
     strategy,
-    question,
     memories,
-    memory_embeddings,
-    retriever,
+    score_bundle,
     k,
 ):
     if strategy == "recency":
         fn = lambda: retrieve_recency(memories, k=k)
     elif strategy == "semantic":
-        fn = lambda: retrieve_semantic(
-            question,
+        fn = lambda: retrieve_semantic_from_scores(
             memories,
-            memory_embeddings,
-            retriever,
+            score_bundle["cosine"],
             k=k,
         )
-    elif strategy == "hybrid":
-        fn = lambda: retrieve_hybrid(
-            question,
+    elif strategy in {"hybrid_raw", "hybrid_minmax", "hybrid_rrf"}:
+        fn = lambda: retrieve_hybrid_from_scores(
             memories,
-            memory_embeddings,
-            retriever,
+            score_bundle,
+            strategy=strategy,
             k=k,
         )
     else:
@@ -189,6 +202,19 @@ def main():
         ),
     )
     parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--question-id",
+        nargs="+",
+        default=None,
+        help="Optional exact question IDs for smoke or sensitivity runs.",
+    )
+    parser.add_argument(
+        "--strategies",
+        nargs="+",
+        choices=DEFAULT_STRATEGIES,
+        default=list(DEFAULT_STRATEGIES),
+        help="Retrieval conditions to run; defaults to all confirmatory strategies.",
+    )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument(
         "--max-seq-length",
@@ -253,12 +279,22 @@ def main():
     args = parser.parse_args()
 
     k_values = sorted(set(args.k))
+    strategies = tuple(dict.fromkeys(args.strategies))
     if any(k <= 0 for k in k_values):
         raise SystemExit("All k values must be positive integers.")
 
     pilot_path = Path(args.pilot_file)
     with pilot_path.open("r", encoding="utf-8") as f:
         records = json.load(f)
+    if args.question_id:
+        requested_ids = list(dict.fromkeys(str(x) for x in args.question_id))
+        by_id = {str(record.get("question_id")): record for record in records}
+        missing_ids = [qid for qid in requested_ids if qid not in by_id]
+        if missing_ids:
+            raise SystemExit(f"Unknown --question-id values: {missing_ids}")
+        records = [by_id[qid] for qid in requested_ids]
+    else:
+        requested_ids = None
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -298,6 +334,8 @@ def main():
         "max_seq_length": retriever.max_seq_length,
         "batch_size": retriever.batch_size,
         "k_values": k_values,
+        "strategies": list(strategies),
+        "selected_question_ids": requested_ids,
         "future_session_policy": (
             "include_all"
             if args.include_future
@@ -308,6 +346,10 @@ def main():
         "trust_generation_tokenizer_code": args.trust_generation_tokenizer_code,
         "input_sha256": sha256_file(pilot_path),
         "latency": "1 warm-up + 5 measured runs; median reported",
+        "latency_scope": (
+            "ranking from shared precomputed document/query embeddings; "
+            "Stella encoding is excluded"
+        ),
         "checkpointing": "CSV flushed after every result row",
         "run_history": [runtime_snapshot()],
     }
@@ -348,7 +390,7 @@ def main():
             expected_keys = {
                 (qid, strategy, k)
                 for k in k_values
-                for strategy in ("recency", "semantic", "hybrid")
+                for strategy in strategies
             }
             if expected_keys.issubset(existing_keys):
                 print(f"[{idx}/{total}] {qid} already complete; skipping")
@@ -393,27 +435,45 @@ def main():
                 )
 
             # One-time document embedding preprocessing is OUTSIDE retrieval latency.
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
             memory_embeddings = retriever.encode_memories(memories)
+            memory_embeddings_finite = bool(np.isfinite(memory_embeddings).all())
+            if not memory_embeddings_finite:
+                raise FloatingPointError(
+                    f"Question {qid} produced non-finite Stella embeddings"
+                )
+            # The query is encoded exactly once, then every strategy and k reuses
+            # the same semantic and recency components.
+            score_bundle = retriever.score_query(
+                question,
+                memories,
+                memory_embeddings,
+            )
+            gpu_peak_memory_bytes = (
+                int(torch.cuda.max_memory_allocated())
+                if torch.cuda.is_available()
+                else ""
+            )
 
             length_diag = retriever.token_length_diagnostics(memories)
             score_diag = retriever.hybrid_component_diagnostics(
                 question,
                 memories,
                 memory_embeddings,
+                score_bundle=score_bundle,
             )
 
             for k in k_values:
-                for strategy in ("recency", "semantic", "hybrid"):
+                for strategy in strategies:
                     key = (qid, strategy, k)
                     if key in existing_keys:
                         continue
 
                     retrieved, latency = run_one_strategy(
                         strategy,
-                        question,
                         memories,
-                        memory_embeddings,
-                        retriever,
+                        score_bundle,
                         k,
                     )
 
@@ -481,6 +541,15 @@ def main():
                         ],
                         **length_diag,
                         **score_diag,
+                        "semantic_minmax_constant": score_bundle[
+                            "semantic_minmax_constant"
+                        ],
+                        "recency_minmax_constant": score_bundle[
+                            "recency_minmax_constant"
+                        ],
+                        "semantic_scores_all_finite": True,
+                        "memory_embeddings_all_finite": memory_embeddings_finite,
+                        "gpu_peak_memory_bytes": gpu_peak_memory_bytes,
                         "retrieved_memory_ids": "|".join(
                             str(x["id"]) for x in retrieved
                         ),
@@ -495,6 +564,14 @@ def main():
                     f.flush()
                     existing_keys.add(key)
                     rows_written += 1
+
+    final_keys = load_completed_keys(out_path)
+    metadata["completed_at_utc"] = runtime_snapshot()["captured_at_utc"]
+    metadata["expected_rows"] = len(records) * len(strategies) * len(k_values)
+    metadata["actual_rows"] = len(final_keys)
+    metadata["complete"] = metadata["actual_rows"] == metadata["expected_rows"]
+    metadata["rows_written_this_invocation"] = rows_written
+    write_json(metadata_path, metadata)
 
     print(f"\nSaved/checkpointed: {out_path}")
     print(f"New rows written: {rows_written}")

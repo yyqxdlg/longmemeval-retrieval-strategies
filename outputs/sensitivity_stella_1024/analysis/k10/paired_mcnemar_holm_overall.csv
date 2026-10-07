@@ -1,0 +1,11 @@
+scope,task_type,metric,strategy_a,strategy_b,n_pairs,a1_b0,a0_b1,n_discordant,paired_proportion_difference_a_minus_b,bootstrap95_lo,bootstrap95_hi,p_raw_exact_mcnemar,p_holm
+overall,ALL,recall_any_at_k,recency,semantic,200,0,164,164,-0.82,-0.8701249999999999,-0.765,8.552847072295026e-50,8.552847072295026e-49
+overall,ALL,recall_any_at_k,recency,hybrid_raw,200,0,42,42,-0.21,-0.27,-0.155,4.547473508864641e-13,1.3642420526593924e-12
+overall,ALL,recall_any_at_k,recency,hybrid_minmax,200,0,126,126,-0.63,-0.695,-0.565,2.350988701644575e-38,2.1158898314801175e-37
+overall,ALL,recall_any_at_k,recency,hybrid_rrf,200,0,108,108,-0.54,-0.61,-0.47,6.162975822039155e-33,4.3140830754274083e-32
+overall,ALL,recall_any_at_k,semantic,hybrid_raw,200,122,0,122,0.61,0.54,0.675,3.76158192263132e-37,3.009265538105056e-36
+overall,ALL,recall_any_at_k,semantic,hybrid_minmax,200,39,1,40,0.19,0.135,0.245,7.457856554538012e-11,1.4915713109076023e-10
+overall,ALL,recall_any_at_k,semantic,hybrid_rrf,200,58,2,60,0.28,0.215,0.345,3.1762786845135338e-15,1.2705114738054135e-14
+overall,ALL,recall_any_at_k,hybrid_raw,hybrid_minmax,200,0,84,84,-0.42,-0.49,-0.355,1.0339757656912846e-25,6.203854594147708e-25
+overall,ALL,recall_any_at_k,hybrid_raw,hybrid_rrf,200,0,66,66,-0.33,-0.395,-0.265,2.710505431213761e-20,1.3552527156068805e-19
+overall,ALL,recall_any_at_k,hybrid_minmax,hybrid_rrf,200,19,1,20,0.09,0.05,0.135,4.00543212890625e-05,4.00543212890625e-05

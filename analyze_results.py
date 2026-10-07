@@ -5,13 +5,22 @@ import itertools
 from pathlib import Path
 from typing import Iterable
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import binomtest, wilcoxon
 
 
-STRATEGIES = ["recency", "semantic", "hybrid"]
+STRATEGIES = [
+    "recency",
+    "semantic",
+    "hybrid_raw",
+    "hybrid_minmax",
+    "hybrid_rrf",
+]
 TASK_ORDER = ["IE", "MR", "KU", "TR"]
 
 # Okabe-Ito colorblind-safe palette. Markers/hatches also encode strategy so
@@ -19,10 +28,24 @@ TASK_ORDER = ["IE", "MR", "KU", "TR"]
 PALETTE = {
     "recency": "#0072B2",   # blue
     "semantic": "#D55E00",  # vermillion
-    "hybrid": "#009E73",    # bluish green
+    "hybrid_raw": "#009E73",    # bluish green
+    "hybrid_minmax": "#E69F00", # orange
+    "hybrid_rrf": "#CC79A7",    # reddish purple
 }
-MARKERS = {"recency": "o", "semantic": "s", "hybrid": "^"}
-HATCHES = {"recency": "//", "semantic": "..", "hybrid": "xx"}
+MARKERS = {
+    "recency": "o",
+    "semantic": "s",
+    "hybrid_raw": "^",
+    "hybrid_minmax": "D",
+    "hybrid_rrf": "P",
+}
+HATCHES = {
+    "recency": "//",
+    "semantic": "..",
+    "hybrid_raw": "xx",
+    "hybrid_minmax": "++",
+    "hybrid_rrf": "oo",
+}
 
 BOOTSTRAP_REPS = 10000
 BOOTSTRAP_SEED = 42
@@ -325,7 +348,7 @@ def plot_metric_box(
         data.append(values)
         labels.append(strategy)
 
-    fig, ax = plt.subplots(figsize=(6.6, 4.4))
+    fig, ax = plt.subplots(figsize=(9.0, 4.6))
     box = ax.boxplot(
         data,
         tick_labels=labels,
@@ -356,6 +379,7 @@ def plot_metric_box(
         )
 
     ax.set_xlabel("Retrieval strategy")
+    ax.tick_params(axis="x", labelrotation=20)
     ax.set_ylabel(ylabel)
     if metric == "latency_ms":
         ax.set_yscale("log")
@@ -370,7 +394,7 @@ def plot_overall_ci(
     ylabel: str,
     out_dir: Path,
 ) -> None:
-    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    fig, ax = plt.subplots(figsize=(9.0, 4.4))
     xs = np.arange(len(STRATEGIES))
 
     for i, strategy in enumerate(STRATEGIES):
@@ -403,6 +427,7 @@ def plot_overall_ci(
         )
 
     ax.set_xticks(xs, STRATEGIES)
+    ax.tick_params(axis="x", labelrotation=20)
     ax.set_xlabel("Retrieval strategy")
     ax.set_ylabel(ylabel)
     if "recall" in metric or metric == "answer_correct":
@@ -421,9 +446,10 @@ def plot_task_ci(
     if not tasks:
         tasks = sorted(df["task_type"].dropna().unique().tolist())
 
-    fig, ax = plt.subplots(figsize=(7.6, 4.7))
+    fig, ax = plt.subplots(figsize=(9.4, 4.8))
     x = np.arange(len(tasks), dtype=float)
-    offsets = {"recency": -0.22, "semantic": 0.0, "hybrid": 0.22}
+    offset_values = np.linspace(-0.32, 0.32, len(STRATEGIES))
+    offsets = dict(zip(STRATEGIES, offset_values))
 
     for strategy in STRATEGIES:
         means, lows, highs = [], [], []
@@ -865,8 +891,8 @@ def analyze_one_k(df: pd.DataFrame, selected_k: int, base_out_dir: Path) -> None
                 f"k={selected_k}",
                 f"n_rows={len(local)}",
                 f"n_questions={local['question_id'].nunique()}",
-                "task-level tests are exploratory for the 20-question pilot",
-                "Holm correction is applied within each metric/scope family of three strategy pairs",
+                "task-level tests are interpreted according to the sample size in this run",
+                "Holm correction is applied within each metric/scope family of strategy pairs",
             ]
         )
         + "\n",
@@ -1070,11 +1096,14 @@ def load_inputs(paths: list[str]) -> pd.DataFrame:
         frame["_source_file"] = p
         frames.append(frame)
     df = pd.concat(frames, ignore_index=True)
-
     required = {"question_id", "strategy", "k"}
     missing = required - set(df.columns)
     if missing:
         raise SystemExit(f"Missing required columns: {sorted(missing)}")
+
+    # Preserve compatibility with checked v4/v5 pilot files that used the
+    # shorter name before sensitivity hybrids were introduced.
+    df["strategy"] = df["strategy"].replace({"hybrid": "hybrid_raw"})
 
     df["k"] = pd.to_numeric(df["k"], errors="coerce")
     df = df.dropna(subset=["k"]).copy()
@@ -1153,7 +1182,7 @@ def main() -> None:
     (base_out / "analysis_notes.txt").write_text(
         "\n".join(
             [
-                "Inferential tests on the 20-question pilot are exploratory/procedure checks.",
+                "Interpret inferential tests in light of the question count recorded for each run.",
                 "Round/session recall and continuous cost metrics use paired Wilcoxon tests with Holm correction.",
                 "recall_any_at_k uses exact McNemar tests because it is paired binary data.",
                 "If answer_correct is later added, the same exact McNemar analysis is applied automatically.",
@@ -1169,9 +1198,10 @@ def main() -> None:
     )
 
     print(f"\nAnalysis written to: {base_out}")
+    n_questions = int(df["question_id"].nunique())
     print(
-        "Reminder: with only 20 pilot questions, treat p-values and task-level "
-        "intervals as exploratory rather than final evidence."
+        f"Interpret inference in light of this run's {n_questions} paired questions; "
+        "small task-level cells remain exploratory."
     )
 
 

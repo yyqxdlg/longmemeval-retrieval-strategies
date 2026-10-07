@@ -18,6 +18,7 @@ from generation import (
     DEFAULT_SYSTEM_PROMPT,
     build_answer_messages,
     context_sha256,
+    oracle_memories,
     reconstruct_retrieved_memories,
 )
 
@@ -52,6 +53,7 @@ RESUME_SETTING_KEYS = (
     "warmup",
     "system_prompt_sha256",
     "future_session_policy",
+    "include_baselines",
 )
 
 
@@ -67,7 +69,7 @@ def completed_keys(path: Path) -> set[tuple[str, str, int]]:
     _, rows = read_csv(path)
     keys = set()
     for row in rows:
-        if str(row.get("generated_answer", "")).strip():
+        try:
             keys.add(
                 (
                     str(row["question_id"]),
@@ -75,6 +77,8 @@ def completed_keys(path: Path) -> set[tuple[str, str, int]]:
                     int(row["k"]),
                 )
             )
+        except (KeyError, TypeError, ValueError):
+            continue
     return keys
 
 
@@ -121,6 +125,17 @@ def load_answer_model(args):
 
     model = AutoModelForCausalLM.from_pretrained(args.model_name, **model_kwargs)
     model.eval()
+    device_map = getattr(model, "hf_device_map", {}) or {}
+    offloaded = {
+        str(module): str(device)
+        for module, device in device_map.items()
+        if str(device).lower() in {"cpu", "disk"}
+    }
+    if offloaded and not args.allow_cpu_offload:
+        raise RuntimeError(
+            "Model was offloaded to CPU/disk, which is not allowed for this run: "
+            + repr(offloaded)
+        )
     return torch, tokenizer, model
 
 
@@ -186,6 +201,54 @@ def generate_one(
     return answer, prompt_tokens, int(generated_ids.shape[-1]), latency_ms
 
 
+def baseline_rows(
+    records: list[dict[str, Any]],
+    input_fields: list[str],
+    *,
+    exclude_future: bool,
+) -> list[dict[str, str]]:
+    """Create k=0 no-retrieval and oracle conditions once per question."""
+    rows: list[dict[str, str]] = []
+    for record in records:
+        qid = str(record["question_id"])
+        common = {field: "" for field in input_fields}
+        common.update(
+            {
+                "question_id": qid,
+                "task_type": str(record.get("_pilot_task", "")),
+                "original_question_type": str(record.get("question_type", "")),
+                "question_date": str(record.get("question_date", "")),
+                "k": "0",
+                "latency_ms": "0.0",
+            }
+        )
+        no_retrieval = dict(common)
+        no_retrieval.update(
+            {
+                "strategy": "no_retrieval",
+                "retrieved_memory_ids": "",
+                "retrieved_session_ids": "",
+            }
+        )
+        rows.append(no_retrieval)
+
+        evidence = oracle_memories(record, exclude_future=exclude_future)
+        if not evidence:
+            raise ValueError(f"Oracle evidence is empty for question {qid}")
+        oracle = dict(common)
+        oracle.update(
+            {
+                "strategy": "oracle",
+                "retrieved_memory_ids": "|".join(str(x["id"]) for x in evidence),
+                "retrieved_session_ids": "|".join(
+                    str(x["session_id"]) for x in evidence
+                ),
+            }
+        )
+        rows.append(oracle)
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate LongMemEval answers from previously retrieved memories."
@@ -214,6 +277,16 @@ def main() -> None:
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--no-warmup", action="store_true")
+    parser.add_argument(
+        "--include-baselines",
+        action="store_true",
+        help="Also generate no_retrieval and oracle once per question (k=0).",
+    )
+    parser.add_argument(
+        "--allow-cpu-offload",
+        action="store_true",
+        help="Permit Accelerate to offload model layers to CPU/disk.",
+    )
     args = parser.parse_args()
 
     if args.max_new_tokens <= 0:
@@ -258,6 +331,21 @@ def main() -> None:
         "exclude_strictly_later_calendar_dates; retain_same_day",
     )
     exclude_future = future_policy != "include_all"
+    selected_question_ids = list(
+        dict.fromkeys(str(row["question_id"]) for row in retrieval_rows)
+    )
+    missing_record_ids = [qid for qid in selected_question_ids if qid not in records]
+    if missing_record_ids:
+        raise SystemExit(f"Retrieval rows reference unknown questions: {missing_record_ids[:5]}")
+    selected_records = [records[qid] for qid in selected_question_ids]
+    if args.include_baselines:
+        retrieval_rows.extend(
+            baseline_rows(
+                selected_records,
+                input_fields,
+                exclude_future=exclude_future,
+            )
+        )
 
     system_prompt = DEFAULT_SYSTEM_PROMPT
     if args.system_prompt_file:
@@ -277,6 +365,9 @@ def main() -> None:
         "k_values": sorted({int(row["k"]) for row in retrieval_rows}),
         "system_prompt_sha256": hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
         "future_session_policy": future_policy,
+        "include_baselines": args.include_baselines,
+        "question_count": len(selected_question_ids),
+        "selected_question_ids": selected_question_ids,
         "input_sha256": sha256_file(pilot_path),
         "retrieval_results_sha256": sha256_file(retrieval_path),
         "run_history": [runtime_snapshot()],
@@ -330,10 +421,16 @@ def main() -> None:
             "a new output file."
         )
     metadata["resolved_model_revision"] = resolved_revision
+    metadata["model_device_map"] = {
+        str(module): str(device)
+        for module, device in (getattr(model, "hf_device_map", {}) or {}).items()
+    }
+    print(f"Resolved model revision: {resolved_revision or args.model_revision}")
+    print(f"Model device map: {metadata['model_device_map']}")
     write_json(metadata_path, metadata)
 
     if not args.no_warmup:
-        generate_one(
+        warmup_answer, warmup_prompt_tokens, warmup_completion_tokens, warmup_ms = generate_one(
             torch=torch,
             tokenizer=tokenizer,
             model=model,
@@ -343,6 +440,24 @@ def main() -> None:
             ],
             max_new_tokens=2,
         )
+        print(
+            "Local warm-up: "
+            f"answer={warmup_answer!r} prompt={warmup_prompt_tokens} "
+            f"completion={warmup_completion_tokens} latency_ms={warmup_ms:.1f}"
+        )
+        if torch.cuda.is_available():
+            metadata["gpu_memory_after_warmup_bytes"] = {
+                "allocated": int(torch.cuda.memory_allocated()),
+                "reserved": int(torch.cuda.memory_reserved()),
+                "max_allocated": int(torch.cuda.max_memory_allocated()),
+            }
+            print(
+                "CUDA memory after warm-up: "
+                f"allocated={metadata['gpu_memory_after_warmup_bytes']['allocated']} "
+                f"reserved={metadata['gpu_memory_after_warmup_bytes']['reserved']} "
+                f"max_allocated={metadata['gpu_memory_after_warmup_bytes']['max_allocated']}"
+            )
+            write_json(metadata_path, metadata)
 
     output_fields = list(input_fields)
     for field in EXTRA_FIELDS:
@@ -362,11 +477,16 @@ def main() -> None:
             if qid not in records:
                 raise RuntimeError(f"Question {qid} is missing from the pilot file")
             record = records[qid]
-            memories = reconstruct_retrieved_memories(
-                record,
-                row.get("retrieved_memory_ids", ""),
-                exclude_future=exclude_future,
-            )
+            if row["strategy"] == "no_retrieval":
+                memories = []
+            elif row["strategy"] == "oracle":
+                memories = oracle_memories(record, exclude_future=exclude_future)
+            else:
+                memories = reconstruct_retrieved_memories(
+                    record,
+                    row.get("retrieved_memory_ids", ""),
+                    exclude_future=exclude_future,
+                )
             messages, context = build_answer_messages(
                 question=str(record.get("question", "")),
                 question_date=record.get("question_date"),
@@ -410,6 +530,23 @@ def main() -> None:
                 f"[{index}/{len(pending)}] {qid} {row['strategy']} k={row['k']} "
                 f"prompt={prompt_tokens} completion={completion_tokens}"
             )
+
+    _, final_rows = read_csv(output_path)
+    completed_nonempty = sum(
+        bool(str(row.get("generated_answer", "")).strip()) for row in final_rows
+    )
+    metadata["completed_at_utc"] = runtime_snapshot()["captured_at_utc"]
+    metadata["expected_rows"] = len(retrieval_rows)
+    metadata["actual_rows"] = len(final_rows)
+    metadata["completed_nonempty_answers"] = completed_nonempty
+    metadata["empty_answers"] = sum(
+        not str(row.get("generated_answer", "")).strip() for row in final_rows
+    )
+    metadata["complete"] = (
+        metadata["actual_rows"] == metadata["expected_rows"]
+        and metadata["empty_answers"] == 0
+    )
+    write_json(metadata_path, metadata)
 
     print(f"Generation results: {output_path}")
     print(f"Metadata: {metadata_path}")

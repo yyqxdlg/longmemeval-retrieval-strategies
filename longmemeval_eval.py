@@ -36,6 +36,41 @@ def export_hypotheses(input_path: Path, output_path: Path) -> int:
     return written
 
 
+def export_hypotheses_by_condition(
+    input_path: Path,
+    output_dir: Path,
+) -> dict[str, int]:
+    _, rows = read_csv(input_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    handles: dict[str, Any] = {}
+    counts: dict[str, int] = {}
+    try:
+        for row in rows:
+            answer = str(row.get("generated_answer", "")).strip()
+            if not answer:
+                continue
+            strategy = str(row["strategy"])
+            k = int(row["k"])
+            condition = f"{strategy}_k{k}"
+            if condition not in handles:
+                handles[condition] = (output_dir / f"{condition}.jsonl").open(
+                    "w", encoding="utf-8"
+                )
+                counts[condition] = 0
+            payload = {
+                "question_id": str(row["question_id"]),
+                "hypothesis": answer,
+                "strategy": strategy,
+                "k": k,
+            }
+            handles[condition].write(json.dumps(payload, ensure_ascii=False) + "\n")
+            counts[condition] += 1
+    finally:
+        for handle in handles.values():
+            handle.close()
+    return counts
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     rows = []
     with path.open("r", encoding="utf-8") as handle:
@@ -138,6 +173,11 @@ def main() -> None:
     export_parser = subparsers.add_parser("export")
     export_parser.add_argument("--input", required=True)
     export_parser.add_argument("--output", required=True)
+    export_parser.add_argument(
+        "--split-by-condition",
+        action="store_true",
+        help="Treat --output as a directory and create one JSONL per strategy/k.",
+    )
 
     merge_parser = subparsers.add_parser("merge")
     merge_parser.add_argument("--generation-results", required=True)
@@ -147,8 +187,19 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.command == "export":
-        count = export_hypotheses(Path(args.input), Path(args.output))
-        print(f"Exported {count} hypotheses to {args.output}")
+        if args.split_by_condition:
+            counts = export_hypotheses_by_condition(
+                Path(args.input), Path(args.output)
+            )
+            print(
+                f"Exported {sum(counts.values())} hypotheses across "
+                f"{len(counts)} condition files to {args.output}"
+            )
+            for condition, count in sorted(counts.items()):
+                print(f"  {condition}: {count}")
+        else:
+            count = export_hypotheses(Path(args.input), Path(args.output))
+            print(f"Exported {count} hypotheses to {args.output}")
     else:
         matched, unused, missing = merge_scores(
             Path(args.generation_results),

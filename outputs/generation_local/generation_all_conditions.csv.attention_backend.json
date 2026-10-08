@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "attention_backend": "CUDNN_PREFILL_MATH_SINGLE_TOKEN_DECODE",
+    "launcher_sha256": "99d76f3a8f52de8494cefee3b93497c0f71bf6da6afbf876192d8644d433c239",
+    "runner_sha256": "cdc8d4673dc13648d937313500a2e2437faefe67906484c9b3c0586e1707f603",
+    "packages": {
+      "torch": "2.7.1+cu128",
+      "transformers": "4.57.6",
+      "bitsandbytes": "0.50.2",
+      "accelerate": "1.15.0"
+    },
+    "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+  },
+  "runs": [
+    {
+      "started_utc": "2026-10-07T18:09:10.139524+00:00",
+      "resume": false,
+      "limit": 1,
+      "status": "COMPLETE",
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "ended_utc": "2026-10-07T18:09:31.844961+00:00"
+    },
+    {
+      "started_utc": "2026-10-07T18:12:13.212504+00:00",
+      "resume": true,
+      "limit": 1,
+      "status": "COMPLETE",
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "ended_utc": "2026-10-07T18:12:33.268496+00:00"
+    },
+    {
+      "started_utc": "2026-10-07T18:14:28.577072+00:00",
+      "resume": true,
+      "limit": null,
+      "status": "FAILED",
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "error": "KeyboardInterrupt()",
+      "ended_utc": "2026-10-08T09:57:12.760383+00:00"
+    }
+  ]
+}

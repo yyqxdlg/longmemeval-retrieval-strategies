@@ -1,0 +1,289 @@
+{
+  "created_at_utc": "2026-10-08T13:28:09.943049+00:00",
+  "model": "NovaSearch/stella_en_1.5B_v5",
+  "revision": "7817065102fd9e1b031fe874e910c01f40b2f001",
+  "precision": "fp32",
+  "batch_size": 1,
+  "max_seq_length": 512,
+  "query_prompt_name": "s2p_query",
+  "document_repeats": 3,
+  "query_repeats": 5,
+  "warmup": {
+    "document_histories": 1,
+    "queries": 5
+  },
+  "timing_clock": "time.perf_counter",
+  "cuda_sync_before_start_and_stop": true,
+  "selected_question_ids": [
+    "gpt4_4edbafa2",
+    "7161e7e2",
+    "f8c5f88b",
+    "8c18457d",
+    "1192316e",
+    "60036106",
+    "a1cc6108",
+    "b6025781",
+    "a3838d2b",
+    "ceb54acb"
+  ],
+  "input_sha256": "586a14e73f598885be4480094a98aabd263b1378e5beee062c4304df84ba7b19",
+  "selection_sha256": "436bd1cbede51be98725ea7a9fd7fecab743189a206d844ada369c067b0704e5",
+  "retrieval_results_sha256": "b3531f30d75f9f7f72170b4a8e660d2965e08bab569b850fc96544bab9d5b42c",
+  "measurements_sha256": "e899ef572061090252cfd7a91c19d18a830932d9b35b66337f1225a14c58f0e5",
+  "hardware_software": "GPU/driver/VRAM: NVIDIA GeForce RTX 5070 Ti Laptop GPU, 610.47, 12227; CUDA (PyTorch): 12.8; cuDNN: 90701; Python: 3.11.17; PyTorch: 2.7.1+cu128; Transformers: 4.42.3; Sentence Transformers: 3.0.1",
+  "git_commit_at_run": "fatal: detected dubious ownership in repository at 'D:/课程/II2201/longmemeval-retrieval-strategies'\n'D:/课程/II2201/longmemeval-retrieval-strategies' is owned by:\n\tLAPTOP-T4KC5VHB/CodexSandboxOffline (S-1-5-21-3306974694-1002037833-608915235-1003)\nbut the current user is:\n\tLAPTOP-T4KC5VHB/ROG (S-1-5-21-3306974694-1002037833-608915235-1001)\nTo add an exception for this directory, call:\n\n\tgit config --global --add safe.directory 'D:/课程/II2201/longmemeval-retrieval-strategies'",
+  "git_dirty_at_run": true,
+  "warmup_seconds": {
+    "document": 35.02896680000049,
+    "queries": [
+      0.0399065999990853,
+      0.03767180000068038,
+      0.04099300000052608,
+      0.040622200000143494,
+      0.04085810000105994
+    ]
+  },
+  "summary": {
+    "document_seconds_per_history": {
+      "median": 28.738382,
+      "min": 27.8210849,
+      "max": 29.618723
+    },
+    "round_count": {
+      "median": 243.5,
+      "min": 218.0,
+      "max": 277.0
+    },
+    "document_ms_per_round": {
+      "median": 119.62535043833873,
+      "min": 106.32577292418772,
+      "max": 127.61965550458714
+    },
+    "query_ms": {
+      "median": 37.06165,
+      "min": 33.1778,
+      "max": 39.8907
+    }
+  },
+  "consistency": [
+    {
+      "question_id": "gpt4_4edbafa2",
+      "exact_order_match": false,
+      "same_set": false,
+      "overlap": 4,
+      "measured_ids": [
+        "sharegpt_jZOf9E5_21::round_4",
+        "sharegpt_jZOf9E5_21::round_3",
+        "answer_0a00c163_2::round_5",
+        "sharegpt_jZOf9E5_21::round_6",
+        "2ba7fdd0_2::round_2"
+      ],
+      "saved_ids": [
+        "sharegpt_jZOf9E5_21::round_4",
+        "sharegpt_jZOf9E5_21::round_3",
+        "answer_0a00c163_2::round_5",
+        "sharegpt_jZOf9E5_21::round_6",
+        "sharegpt_jZOf9E5_21::round_5"
+      ]
+    },
+    {
+      "question_id": "7161e7e2",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_sharegpt_5Lzox6N_0::round_6",
+        "answer_sharegpt_5Lzox6N_0::round_5",
+        "answer_sharegpt_5Lzox6N_0::round_1",
+        "answer_sharegpt_5Lzox6N_0::round_0",
+        "answer_sharegpt_5Lzox6N_0::round_4"
+      ],
+      "saved_ids": [
+        "answer_sharegpt_5Lzox6N_0::round_6",
+        "answer_sharegpt_5Lzox6N_0::round_5",
+        "answer_sharegpt_5Lzox6N_0::round_1",
+        "answer_sharegpt_5Lzox6N_0::round_0",
+        "answer_sharegpt_5Lzox6N_0::round_4"
+      ]
+    },
+    {
+      "question_id": "f8c5f88b",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_c3567066::round_3",
+        "answer_c3567066::round_2",
+        "answer_c3567066::round_4",
+        "15232887_1::round_5",
+        "answer_c3567066::round_5"
+      ],
+      "saved_ids": [
+        "answer_c3567066::round_3",
+        "answer_c3567066::round_2",
+        "answer_c3567066::round_4",
+        "15232887_1::round_5",
+        "answer_c3567066::round_5"
+      ]
+    },
+    {
+      "question_id": "8c18457d",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "98cd882c_2::round_0",
+        "98cd882c_2::round_1",
+        "answer_124f5dc3_2::round_4",
+        "answer_124f5dc3_1::round_0",
+        "answer_124f5dc3_2::round_3"
+      ],
+      "saved_ids": [
+        "98cd882c_2::round_0",
+        "98cd882c_2::round_1",
+        "answer_124f5dc3_2::round_4",
+        "answer_124f5dc3_1::round_0",
+        "answer_124f5dc3_2::round_3"
+      ]
+    },
+    {
+      "question_id": "1192316e",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_e184e4c3_2::round_3",
+        "sharegpt_5HGh4Yy_0::round_1",
+        "answer_e184e4c3_2::round_0",
+        "answer_e184e4c3_1::round_1",
+        "cf0f42a0_2::round_3"
+      ],
+      "saved_ids": [
+        "answer_e184e4c3_2::round_3",
+        "sharegpt_5HGh4Yy_0::round_1",
+        "answer_e184e4c3_2::round_0",
+        "answer_e184e4c3_1::round_1",
+        "cf0f42a0_2::round_3"
+      ]
+    },
+    {
+      "question_id": "60036106",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_e552e1f9_2::round_0",
+        "answer_e552e1f9_2::round_3",
+        "answer_e552e1f9_2::round_2",
+        "763f028a::round_4",
+        "763f028a::round_5"
+      ],
+      "saved_ids": [
+        "answer_e552e1f9_2::round_0",
+        "answer_e552e1f9_2::round_3",
+        "answer_e552e1f9_2::round_2",
+        "763f028a::round_4",
+        "763f028a::round_5"
+      ]
+    },
+    {
+      "question_id": "a1cc6108",
+      "exact_order_match": false,
+      "same_set": false,
+      "overlap": 4,
+      "measured_ids": [
+        "answer_17dc2f5b_1::round_0",
+        "fb328ace_1::round_5",
+        "answer_17dc2f5b_2::round_4",
+        "answer_17dc2f5b_2::round_1",
+        "answer_17dc2f5b_1::round_3"
+      ],
+      "saved_ids": [
+        "answer_17dc2f5b_1::round_0",
+        "fb328ace_1::round_5",
+        "answer_17dc2f5b_2::round_4",
+        "answer_17dc2f5b_2::round_1",
+        "sharegpt_vmvA9cT_0::round_0"
+      ]
+    },
+    {
+      "question_id": "b6025781",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "f20c73f5_3::round_0",
+        "answer_8414cc57::round_2",
+        "answer_8414cc57::round_0",
+        "f20c73f5_3::round_1",
+        "answer_8414cc57::round_1"
+      ],
+      "saved_ids": [
+        "f20c73f5_3::round_0",
+        "answer_8414cc57::round_2",
+        "answer_8414cc57::round_0",
+        "f20c73f5_3::round_1",
+        "answer_8414cc57::round_1"
+      ]
+    },
+    {
+      "question_id": "a3838d2b",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_4ffa04a2_1::round_4",
+        "answer_4ffa04a2_1::round_3",
+        "answer_4ffa04a2_1::round_0",
+        "answer_4ffa04a2_2::round_0",
+        "answer_4ffa04a2_6::round_4"
+      ],
+      "saved_ids": [
+        "answer_4ffa04a2_1::round_4",
+        "answer_4ffa04a2_1::round_3",
+        "answer_4ffa04a2_1::round_0",
+        "answer_4ffa04a2_2::round_0",
+        "answer_4ffa04a2_6::round_4"
+      ]
+    },
+    {
+      "question_id": "ceb54acb",
+      "exact_order_match": true,
+      "same_set": true,
+      "overlap": 5,
+      "measured_ids": [
+        "answer_sharegpt_cGdjmYo_0::round_1",
+        "answer_sharegpt_cGdjmYo_0::round_0",
+        "sharegpt_yePPued_0::round_2",
+        "63b72857::round_2",
+        "sharegpt_iTrNGx4_13::round_1"
+      ],
+      "saved_ids": [
+        "answer_sharegpt_cGdjmYo_0::round_1",
+        "answer_sharegpt_cGdjmYo_0::round_0",
+        "sharegpt_yePPued_0::round_2",
+        "63b72857::round_2",
+        "sharegpt_iTrNGx4_13::round_1"
+      ]
+    }
+  ],
+  "consistency_interpretation": {
+    "exact_order_matches": 8,
+    "same_set_matches": 8,
+    "total_top5_overlap": 48,
+    "boundary_swap_questions": [
+      "gpt4_4edbafa2",
+      "a1cc6108"
+    ],
+    "large_mismatch_questions": [],
+    "repeatability_followup": {
+      "question_id": "a1cc6108",
+      "query_vector_max_abs_difference": 0.0008226018399000168,
+      "document_vector_max_abs_difference": 0.03255986422300339,
+      "interpretation": "Original main-run settings are not bitwise deterministic on this CUDA path; both mismatches were limited to one Top-5 boundary item."
+    }
+  },
+  "anomalies": [
+    "Semantic Top-5 had a one-item boundary swap for 2/10 questions; all retained 4/5 overlap."
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "source": "config/confirmatory_200_ids.json",
+  "seed": 42,
+  "selection_method": "random.Random(42).sample(ids, 10)",
+  "questions": [
+    {
+      "question_id": "gpt4_4edbafa2",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "7161e7e2",
+      "task_type": "IE",
+      "question_type": "single-session-assistant"
+    },
+    {
+      "question_id": "f8c5f88b",
+      "task_type": "IE",
+      "question_type": "single-session-user"
+    },
+    {
+      "question_id": "8c18457d",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "1192316e",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "60036106",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "a1cc6108",
+      "task_type": "MR",
+      "question_type": "multi-session"
+    },
+    {
+      "question_id": "b6025781",
+      "task_type": "IE",
+      "question_type": "single-session-preference"
+    },
+    {
+      "question_id": "a3838d2b",
+      "task_type": "TR",
+      "question_type": "temporal-reasoning"
+    },
+    {
+      "question_id": "ceb54acb",
+      "task_type": "IE",
+      "question_type": "single-session-assistant"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "future_session_policy": "exclude_strictly_later_calendar_dates; retain_same_day",
+  "selection_manifest": "C:\\Users\\Jade\\Documents\\Codex\\2026-10-07\\z\\outputs\\length_sensitivity_236_manifest.json",
+  "note": "Baselines are already explicit input rows. Do not pass --include-baselines, which would add unselected baseline rows."
+}

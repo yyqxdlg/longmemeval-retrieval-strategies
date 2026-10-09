@@ -1,0 +1,157 @@
+{
+  "checks": {
+    "row_count": {
+      "passed": true,
+      "detail": 2400
+    },
+    "unique_keys": {
+      "passed": true,
+      "detail": 2400
+    },
+    "expected_conditions": {
+      "passed": true,
+      "detail": {
+        "missing": [],
+        "unexpected": []
+      }
+    },
+    "csv_structure": {
+      "passed": true,
+      "detail": null
+    },
+    "nonempty_answers": {
+      "passed": true,
+      "detail": null
+    },
+    "uniform_answer_model": {
+      "passed": true,
+      "detail": [
+        "meta-llama/Llama-3.1-8B-Instruct"
+      ]
+    },
+    "uniform_answer_model_revision": {
+      "passed": true,
+      "detail": [
+        "0e9e39f249a16976918f6564b8830bc894c89659"
+      ]
+    },
+    "uniform_quantization": {
+      "passed": true,
+      "detail": [
+        "4bit"
+      ]
+    },
+    "uniform_generation_torch_dtype": {
+      "passed": true,
+      "detail": [
+        "auto"
+      ]
+    },
+    "uniform_max_new_tokens": {
+      "passed": true,
+      "detail": [
+        "128"
+      ]
+    },
+    "uniform_generation_seed": {
+      "passed": true,
+      "detail": [
+        "42"
+      ]
+    },
+    "token_counts": {
+      "passed": true,
+      "detail": null
+    },
+    "generation_latency": {
+      "passed": true,
+      "detail": null
+    },
+    "input_hashes": {
+      "passed": true,
+      "detail": null
+    },
+    "selected_question_ids": {
+      "passed": true,
+      "detail": null
+    },
+    "metadata_completion": {
+      "passed": true,
+      "detail": null
+    },
+    "retrieval_fields_unchanged": {
+      "passed": true,
+      "detail": {
+        "mismatch_count": 0,
+        "examples": []
+      }
+    },
+    "all_context_hashes": {
+      "passed": true,
+      "detail": {
+        "mismatch_count": 0
+      }
+    },
+    "independent_context_token_counts": {
+      "passed": true,
+      "detail": {
+        "rows_checked": 2000,
+        "note": "Generation intentionally replaces retrieval token_count with the Llama-tokenized context count."
+      }
+    }
+  },
+  "failed_checks": [],
+  "passed": true,
+  "generation_csv": "D:\\research_pROJECT\\longmemeval_retrieval_pilot\\longmemeval_retrieval_pilot\\outputs\\generation_local\\generation_all_conditions.csv",
+  "sha256": "6f1c13751232e812e0d67fe00896f2870b3353c803df3f01e857925ef6a44aa8",
+  "completed_at_utc": "2026-10-09T01:24:32.704596+00:00",
+  "rows": 2400,
+  "unique_keys": 2400,
+  "task_rows": {
+    "IE": 600,
+    "MR": 600,
+    "KU": 600,
+    "TR": 600
+  },
+  "condition_rows": {
+    "recency/k=5": 200,
+    "recency/k=10": 200,
+    "semantic/k=5": 200,
+    "semantic/k=10": 200,
+    "hybrid_raw/k=5": 200,
+    "hybrid_raw/k=10": 200,
+    "hybrid_minmax/k=5": 200,
+    "hybrid_minmax/k=10": 200,
+    "hybrid_rrf/k=5": 200,
+    "hybrid_rrf/k=10": 200,
+    "oracle/k=0": 200,
+    "no_retrieval/k=0": 200
+  },
+  "scored_answers": 0,
+  "judge_models": [],
+  "answers_at_token_limit": 236,
+  "token_limit_by_condition": {
+    "hybrid_raw/k=5": 10,
+    "recency/k=10": 14,
+    "hybrid_minmax/k=10": 32,
+    "hybrid_raw/k=10": 15,
+    "semantic/k=10": 28,
+    "hybrid_rrf/k=10": 26,
+    "hybrid_rrf/k=5": 19,
+    "semantic/k=5": 28,
+    "hybrid_minmax/k=5": 25,
+    "recency/k=5": 5,
+    "no_retrieval/k=0": 8,
+    "oracle/k=0": 26
+  },
+  "prompt_token_range": [
+    104,
+    7869
+  ],
+  "generation_time_sum_hours": 29.13330802402813,
+  "generation_latency_median_seconds": 31.154725800006418,
+  "notes": [
+    "Completion-token count equal to 128 indicates a possible length limit; it does not prove truncation without finish reasons.",
+    "Nonempty output and matching hashes do not establish answer correctness."
+  ]
+}

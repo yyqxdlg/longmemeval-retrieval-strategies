@@ -289,6 +289,29 @@
       ],
       "git_commit": "2a0289f21f27295a17ca54b09090150f49126f2e",
       "git_dirty": true
+    },
+    {
+      "captured_at_utc": "2026-10-08T11:56:57.788341+00:00",
+      "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.26100-SP0",
+      "packages": {
+        "torch": "2.7.1+cu128",
+        "transformers": "4.57.6",
+        "sentence-transformers": "3.4.1",
+        "accelerate": "1.15.0",
+        "bitsandbytes": "0.50.2",
+        "numpy": "2.4.6",
+        "pandas": "3.0.6",
+        "scipy": "1.17.1"
+      },
+      "cuda_available": true,
+      "cuda_version": "12.8",
+      "cudnn_version": 90701,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 4070 Laptop GPU"
+      ],
+      "git_commit": "4152bdf0ab8f5cea6f92b4c97e51e30c4eda75fe",
+      "git_dirty": true
     }
   ],
   "decoding": {
@@ -304,10 +327,10 @@
     "reserved": 6983516160,
     "max_allocated": 6724158464
   },
-  "completed_at_utc": "2026-10-07T18:12:33.149583+00:00",
+  "completed_at_utc": "2026-10-09T01:24:32.704596+00:00",
   "expected_rows": 2400,
-  "actual_rows": 2,
-  "completed_nonempty_answers": 2,
+  "actual_rows": 2400,
+  "completed_nonempty_answers": 2400,
   "empty_answers": 0,
-  "complete": false
+  "complete": true
 }

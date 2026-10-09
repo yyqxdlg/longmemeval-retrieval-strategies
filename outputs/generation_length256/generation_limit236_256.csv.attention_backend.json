@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "attention_backend": "CUDNN_PREFILL_MATH_SINGLE_TOKEN_DECODE",
+    "launcher_sha256": "d8f21072b595a4a62224d3ef8d4c007ca572db0630ef8491334e1c16f22cf810",
+    "runner_sha256": "cdc8d4673dc13648d937313500a2e2437faefe67906484c9b3c0586e1707f603",
+    "packages": {
+      "torch": "2.7.1+cu128",
+      "transformers": "4.57.6",
+      "bitsandbytes": "0.50.2",
+      "accelerate": "1.15.0"
+    },
+    "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659"
+  },
+  "runs": [
+    {
+      "started_utc": "2026-10-09T05:11:18.726064+00:00",
+      "resume": false,
+      "limit": null,
+      "status": "COMPLETE",
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "ended_utc": "2026-10-09T14:09:12.585022+00:00"
+    }
+  ]
+}

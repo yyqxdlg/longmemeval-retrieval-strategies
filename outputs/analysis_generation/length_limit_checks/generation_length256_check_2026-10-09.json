@@ -1,0 +1,39 @@
+{
+  "checks": {
+    "complete_236_unique": true,
+    "source_primary_unchanged": true,
+    "csv_structure_and_nonempty": true,
+    "same_context_and_prompt_tokens": true,
+    "same_model_seed_memory_settings": true,
+    "new_limit_256": true,
+    "same_system_prompt_input_decoding": true,
+    "same_backend_and_packages": true,
+    "run_completed": true
+  },
+  "all_checks_passed": true,
+  "rows": 236,
+  "ended_below_256": 173,
+  "reached_256": 63,
+  "cap_text_ending_review": {
+    "clear_incomplete_ending": 46,
+    "uncertain_boundary": 9,
+    "coherent_boundary": 8
+  },
+  "reached_256_by_task": {
+    "IE": 52,
+    "MR": 5,
+    "TR": 6
+  },
+  "prefix_matches": 236,
+  "unchanged_answers": 2,
+  "scored_answers": 0,
+  "new_generation_time_hours": 8.953963531916832,
+  "median_completion_tokens": 191.5,
+  "completed_at_utc": "2026-10-09T14:09:12.242474+00:00",
+  "csv_sha256": "b8e58fde9d0cf3e0ce78d018a9c4ee1ad3fc270705846b9bd91e4bdac5cc87e0",
+  "limitations": [
+    "End-boundary classification does not establish answer correctness.",
+    "Finish reasons and raw token IDs are absent; below-limit ending is not a guarantee of full question coverage.",
+    "The selected 236 rows are not a balanced independent sample and must not be pooled into the primary 128-token results."
+  ]
+}

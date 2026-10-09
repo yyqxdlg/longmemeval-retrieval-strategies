@@ -1,0 +1,78 @@
+{
+  "started_utc": "2026-10-07T18:00:16.566566+00:00",
+  "attention_backend": "CUDNN_PREFILL_MATH_SINGLE_TOKEN_DECODE",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "quantization": "4bit_nf4",
+  "seed": 42,
+  "max_new_tokens": 128,
+  "rows_scanned": 2400,
+  "longest": {
+    "retrieval": {
+      "question_id": "gpt4_1d4ab0c9",
+      "strategy": "hybrid_minmax",
+      "k": 10,
+      "prompt_tokens": 7869
+    },
+    "no_retrieval": {
+      "question_id": "0e5e2d1a",
+      "strategy": "no_retrieval",
+      "k": 0,
+      "prompt_tokens": 149
+    },
+    "oracle": {
+      "question_id": "gpt4_a1b77f9c",
+      "strategy": "oracle",
+      "k": 0,
+      "prompt_tokens": 4135
+    }
+  },
+  "tests": [
+    {
+      "question_id": "gpt4_1d4ab0c9",
+      "strategy": "hybrid_minmax",
+      "k": 10,
+      "prompt_tokens": 7869,
+      "group": "retrieval",
+      "nonempty": true,
+      "actual_prompt_tokens": 7869,
+      "completion_tokens": 128,
+      "latency_ms": 274557.56339995423,
+      "peak_allocated_gib": 7.21925163269043,
+      "peak_reserved_gib": 7.6484375
+    },
+    {
+      "question_id": "gpt4_a1b77f9c",
+      "strategy": "oracle",
+      "k": 0,
+      "prompt_tokens": 4135,
+      "group": "oracle",
+      "nonempty": true,
+      "actual_prompt_tokens": 4135,
+      "completion_tokens": 128,
+      "latency_ms": 17152.140600024723,
+      "peak_allocated_gib": 6.323538303375244,
+      "peak_reserved_gib": 6.71484375
+    },
+    {
+      "question_id": "0e5e2d1a",
+      "strategy": "no_retrieval",
+      "k": 0,
+      "prompt_tokens": 149,
+      "group": "no_retrieval",
+      "nonempty": true,
+      "actual_prompt_tokens": 149,
+      "completion_tokens": 34,
+      "latency_ms": 2017.760900023859,
+      "peak_allocated_gib": 5.468801498413086,
+      "peak_reserved_gib": 6.408203125
+    }
+  ],
+  "status": "PASS",
+  "device_map": {
+    "": "0"
+  },
+  "torch_version": "2.7.1+cu128",
+  "cuda_version": "12.8",
+  "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+  "ended_utc": "2026-10-07T18:05:23.578063+00:00"
+}

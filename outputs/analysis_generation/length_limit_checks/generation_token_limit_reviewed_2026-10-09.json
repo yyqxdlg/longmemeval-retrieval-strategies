@@ -1,0 +1,29 @@
+{
+  "total_reviewed": 236,
+  "classification_counts": {
+    "clear_incomplete_ending": 191,
+    "uncertain_boundary": 31,
+    "coherent_boundary": 14
+  },
+  "clear_incomplete_by_task": {
+    "IE": 101,
+    "MR": 34,
+    "KU": 3,
+    "TR": 53
+  },
+  "clear_incomplete_by_condition": {
+    "hybrid_raw/k=5": 7,
+    "recency/k=10": 13,
+    "hybrid_minmax/k=10": 27,
+    "hybrid_raw/k=10": 14,
+    "semantic/k=10": 21,
+    "hybrid_rrf/k=10": 17,
+    "hybrid_rrf/k=5": 15,
+    "semantic/k=5": 26,
+    "hybrid_minmax/k=5": 22,
+    "recency/k=5": 4,
+    "no_retrieval/k=0": 5,
+    "oracle/k=0": 20
+  },
+  "scope": "Manual inspection of all visible endings. Classification is descriptive, not a correctness score. No finish_reason or raw token IDs were saved, so EOS versus max-length stopping cannot be independently verified."
+}

@@ -21,6 +21,7 @@ STRATEGIES = [
     "hybrid_minmax",
     "hybrid_rrf",
 ]
+BASELINE_STRATEGIES = ["no_retrieval", "oracle"]
 TASK_ORDER = ["IE", "MR", "KU", "TR"]
 
 # Okabe-Ito colorblind-safe palette. Markers/hatches also encode strategy so
@@ -366,6 +367,8 @@ def plot_metric_box(
         values = pd.to_numeric(
             df.loc[df["strategy"] == strategy, metric], errors="coerce"
         ).dropna().to_numpy()
+        if len(values) == 0:
+            continue
         offsets = np.linspace(-0.06, 0.06, len(values)) if len(values) > 1 else [0]
         ax.scatter(
             np.asarray(offsets) + i,
@@ -1089,6 +1092,148 @@ def cross_k_summary(df: pd.DataFrame, out_dir: Path) -> None:
         )
 
 
+def analyze_answer_conditions(df: pd.DataFrame, out_dir: Path) -> None:
+    """Summarize and compare answer accuracy across retrieval and k=0 baselines."""
+    if "answer_correct" not in df.columns:
+        return
+
+    local = df.loc[
+        df["strategy"].isin(STRATEGIES + BASELINE_STRATEGIES)
+    ].copy()
+    local["answer_correct"] = coerce_binary(local["answer_correct"])
+    local = local.dropna(subset=["answer_correct"])
+    if local.empty:
+        return
+
+    local["condition"] = np.where(
+        local["strategy"].isin(BASELINE_STRATEGIES),
+        local["strategy"],
+        local["strategy"] + "_k" + local["k"].astype(str),
+    )
+    condition_order = BASELINE_STRATEGIES + [
+        f"{strategy}_k{k}"
+        for k in sorted(local.loc[local["strategy"].isin(STRATEGIES), "k"].unique())
+        for strategy in STRATEGIES
+    ]
+    condition_order = [
+        condition for condition in condition_order
+        if condition in set(local["condition"])
+    ]
+
+    summary_rows = []
+    for condition in condition_order:
+        values = local.loc[
+            local["condition"] == condition, "answer_correct"
+        ].to_numpy(dtype=float)
+        mean, lo, hi = bootstrap_ci(values, statistic="mean")
+        first = local.loc[local["condition"] == condition].iloc[0]
+        summary_rows.append(
+            {
+                "condition": condition,
+                "strategy": first["strategy"],
+                "k": int(first["k"]),
+                "n": len(values),
+                "n_correct": int(values.sum()),
+                "accuracy": mean,
+                "accuracy_ci95_lo": lo,
+                "accuracy_ci95_hi": hi,
+            }
+        )
+    pd.DataFrame(summary_rows).to_csv(
+        out_dir / "answer_accuracy_all_conditions.csv", index=False
+    )
+
+    task_rows = []
+    for task in [t for t in TASK_ORDER if t in set(local["task_type"].dropna())]:
+        task_df = local.loc[local["task_type"] == task]
+        for condition in condition_order:
+            values = task_df.loc[
+                task_df["condition"] == condition, "answer_correct"
+            ].to_numpy(dtype=float)
+            if len(values) == 0:
+                continue
+            mean, lo, hi = bootstrap_ci(values, statistic="mean")
+            task_rows.append(
+                {
+                    "task_type": task,
+                    "condition": condition,
+                    "n": len(values),
+                    "n_correct": int(values.sum()),
+                    "accuracy": mean,
+                    "accuracy_ci95_lo": lo,
+                    "accuracy_ci95_hi": hi,
+                }
+            )
+    pd.DataFrame(task_rows).to_csv(
+        out_dir / "answer_accuracy_by_task_condition.csv", index=False
+    )
+
+    if "recall_any_at_k" in local.columns:
+        retrieval = local.loc[local["strategy"].isin(STRATEGIES)].copy()
+        retrieval["recall_any_at_k"] = coerce_binary(retrieval["recall_any_at_k"])
+        recall_rows = []
+        for (strategy, k, recalled), group in retrieval.dropna(
+            subset=["recall_any_at_k"]
+        ).groupby(["strategy", "k", "recall_any_at_k"]):
+            values = group["answer_correct"].to_numpy(dtype=float)
+            mean, lo, hi = bootstrap_ci(values, statistic="mean")
+            recall_rows.append(
+                {
+                    "strategy": strategy,
+                    "k": int(k),
+                    "recall_any_at_k": int(recalled),
+                    "n": len(values),
+                    "n_correct": int(values.sum()),
+                    "answer_accuracy": mean,
+                    "answer_accuracy_ci95_lo": lo,
+                    "answer_accuracy_ci95_hi": hi,
+                }
+            )
+        pd.DataFrame(recall_rows).sort_values(
+            ["k", "strategy", "recall_any_at_k"]
+        ).to_csv(out_dir / "answer_accuracy_by_recall_any.csv", index=False)
+
+    pivot = local.pivot_table(
+        index="question_id",
+        columns="condition",
+        values="answer_correct",
+        aggfunc="first",
+    )
+    pair_rows = []
+    raw_p = []
+    for a, b in itertools.combinations(condition_order, 2):
+        pair = pivot[[a, b]].dropna()
+        x = pair[a].to_numpy(dtype=int)
+        y = pair[b].to_numpy(dtype=int)
+        n10 = int(np.sum((x == 1) & (y == 0)))
+        n01 = int(np.sum((x == 0) & (y == 1)))
+        discordant = n10 + n01
+        p = 1.0 if discordant == 0 else float(
+            binomtest(n10, discordant, p=0.5, alternative="two-sided").pvalue
+        )
+        mean_diff, ci_lo, ci_hi = paired_bootstrap_mean_diff(x, y)
+        pair_rows.append(
+            {
+                "condition_a": a,
+                "condition_b": b,
+                "n_pairs": len(pair),
+                "a1_b0": n10,
+                "a0_b1": n01,
+                "n_discordant": discordant,
+                "paired_accuracy_difference_a_minus_b": mean_diff,
+                "bootstrap95_lo": ci_lo,
+                "bootstrap95_hi": ci_hi,
+                "p_raw_exact_mcnemar": p,
+            }
+        )
+        raw_p.append(p)
+    for row, adjusted in zip(pair_rows, holm_adjust(raw_p)):
+        row["p_holm_all_condition_pairs"] = adjusted
+    pd.DataFrame(pair_rows).to_csv(
+        out_dir / "answer_mcnemar_all_conditions.csv", index=False
+    )
+
+
 def load_inputs(paths: list[str]) -> pd.DataFrame:
     frames = []
     for p in paths:
@@ -1154,7 +1299,11 @@ def main() -> None:
     base_out = Path(args.output_dir)
     base_out.mkdir(parents=True, exist_ok=True)
 
-    completeness = check_completeness(df)
+    retrieval_df = df.loc[df["strategy"].isin(STRATEGIES)].copy()
+    if retrieval_df.empty:
+        raise SystemExit("No supported retrieval-strategy rows were found.")
+
+    completeness = check_completeness(retrieval_df)
     completeness.to_csv(base_out / "completeness_check.csv", index=False)
     incomplete = completeness.loc[~completeness["complete"]]
     if not incomplete.empty:
@@ -1163,7 +1312,7 @@ def main() -> None:
             "See completeness_check.csv before interpreting paired tests."
         )
 
-    available_k = sorted(int(x) for x in df["k"].dropna().unique())
+    available_k = sorted(int(x) for x in retrieval_df["k"].dropna().unique())
     if args.k is not None:
         if args.k not in available_k:
             raise SystemExit(
@@ -1174,10 +1323,12 @@ def main() -> None:
         ks_to_analyze = available_k
 
     for k in ks_to_analyze:
-        analyze_one_k(df, k, base_out)
+        analyze_one_k(retrieval_df, k, base_out)
 
     if args.k is None and len(available_k) > 1:
-        cross_k_summary(df, base_out)
+        cross_k_summary(retrieval_df, base_out)
+
+    analyze_answer_conditions(df, base_out)
 
     (base_out / "analysis_notes.txt").write_text(
         "\n".join(
@@ -1185,7 +1336,7 @@ def main() -> None:
                 "Interpret inferential tests in light of the question count recorded for each run.",
                 "Round/session recall and continuous cost metrics use paired Wilcoxon tests with Holm correction.",
                 "recall_any_at_k uses exact McNemar tests because it is paired binary data.",
-                "If answer_correct is later added, the same exact McNemar analysis is applied automatically.",
+                "When answer_correct is present, exact McNemar analysis is applied within each k and across every retrieval/baseline condition.",
                 "Task-level tests have very small n in the pilot and should not be used for strong claims.",
                 "Figures use the Okabe-Ito colorblind-safe palette plus distinct markers/hatches.",
                 "Error bars are non-parametric bootstrap 95% confidence intervals across questions.",

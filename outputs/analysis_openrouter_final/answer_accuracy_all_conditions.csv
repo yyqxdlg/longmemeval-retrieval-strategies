@@ -1,0 +1,13 @@
+condition,strategy,k,n,n_correct,accuracy,accuracy_ci95_lo,accuracy_ci95_hi
+no_retrieval,no_retrieval,0,200,11,0.055,0.025,0.09
+oracle,oracle,0,200,144,0.72,0.655,0.78
+recency_k5,recency,5,200,16,0.08,0.045,0.12
+semantic_k5,semantic,5,200,95,0.475,0.405,0.545
+hybrid_raw_k5,hybrid_raw,5,200,40,0.2,0.145,0.26
+hybrid_minmax_k5,hybrid_minmax,5,200,71,0.355,0.29,0.42
+hybrid_rrf_k5,hybrid_rrf,5,200,46,0.23,0.175,0.29
+recency_k10,recency,10,200,24,0.12,0.075,0.165
+semantic_k10,semantic,10,200,114,0.57,0.5,0.64
+hybrid_raw_k10,hybrid_raw,10,200,44,0.22,0.165,0.28
+hybrid_minmax_k10,hybrid_minmax,10,200,83,0.415,0.35,0.485
+hybrid_rrf_k10,hybrid_rrf,10,200,63,0.315,0.25,0.38

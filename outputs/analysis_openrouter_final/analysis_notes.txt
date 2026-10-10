@@ -1,0 +1,9 @@
+Interpret inferential tests in light of the question count recorded for each run.
+Round/session recall and continuous cost metrics use paired Wilcoxon tests with Holm correction.
+recall_any_at_k uses exact McNemar tests because it is paired binary data.
+When answer_correct is present, exact McNemar analysis is applied within each k and across every retrieval/baseline condition.
+Task-level tests have very small n in the pilot and should not be used for strong claims.
+Figures use the Okabe-Ito colorblind-safe palette plus distinct markers/hatches.
+Error bars are non-parametric bootstrap 95% confidence intervals across questions.
+Retrieval trade-offs use retrieval latency/context tokens; answer trade-offs prefer total latency/full prompt tokens.
+Top-k conditions are analyzed separately; cross-k output is created only from explicitly present k values.

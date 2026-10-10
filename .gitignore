@@ -28,9 +28,13 @@ outputs/sensitivity_stella_1024/smoke_4_k5_k10.metadata.json
 .cache/
 hf-cache/
 model/
+.env
+.env.*
+!.env.example
 *.safetensors
 *.bin
 *.log
+outputs/evaluation_openrouter/generation_scored_openrouter_partial.csv
 
 # Archives
 *.zip

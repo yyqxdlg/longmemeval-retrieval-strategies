@@ -893,6 +893,26 @@ python path/to/LongMemEval/src/evaluation/evaluate_qa.py `
   outputs/pilot/pilot_questions.json
 ```
 
+If a direct OpenAI API key is unavailable, the repository also includes an
+OpenRouter adapter that preserves the official LongMemEval judge prompts and
+pins the same `gpt-4o-2024-08-06` snapshot:
+
+```powershell
+# Set this only in the local process; never commit the key.
+$env:OPENROUTER_API_KEY = "<set-locally>"
+
+# Export, run one paid smoke-test judgment, and create a partial scored CSV.
+.\scripts\run_openrouter_evaluation.ps1 -Limit 1
+
+# Resume the same log and finish all remaining judgments.
+.\scripts\run_openrouter_evaluation.ps1 -Limit 0 -Resume
+```
+
+The default route is restricted to OpenRouter's OpenAI provider. Report the
+result as "LongMemEval official judge protocol using GPT-4o-2024-08-06 via
+OpenRouter." See `scripts/OPENROUTER_EVALUATION.md` for secure key entry, a
+no-cost dry run, and the exact output paths.
+
 Merge the official labels back into a new, scored CSV:
 
 ```powershell
